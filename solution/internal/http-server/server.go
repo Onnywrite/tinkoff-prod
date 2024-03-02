@@ -1,8 +1,11 @@
-package main
+package server
 
 import (
 	"log/slog"
-	"net/http"
+
+	"solution/internal/http-server/handler"
+
+	"github.com/labstack/echo/v4"
 )
 
 type Server struct {
@@ -18,20 +21,13 @@ func NewServer(address string, logger *slog.Logger) *Server {
 }
 
 func (s *Server) Start() error {
-	mux := http.NewServeMux()
+	e := echo.New()
 
-	mux.HandleFunc("/api/ping", s.handlePing)
+	e.GET("/api/ping", handler.GetPing)
 
 	s.logger.Info("server has been started", "address", s.address)
 
-	err := http.ListenAndServe(s.address, mux)
-	if err != http.ErrServerClosed {
-		return err
-	}
+	e.Start(s.address)
 
 	return nil
-}
-
-func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
-	_, _ = w.Write([]byte("ok"))
 }

@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"os"
 
+	server "solution/internal/http-server"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )
@@ -30,7 +32,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := NewServer(serverAddress, logger)
+	s := server.NewServer(serverAddress, logger)
 
 	err = s.Start()
 	if err != nil {

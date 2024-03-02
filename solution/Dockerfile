@@ -16,7 +16,7 @@ RUN go mod download && go mod verify
 COPY . .
 
 # Build the application.
-RUN go build -o bin/application .
+RUN go build -o bin/application cmd/main.go
 
 # Prepare executor image.
 FROM alpine:3.19 AS runner
