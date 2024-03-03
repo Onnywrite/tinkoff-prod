@@ -1,30 +1,16 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"os"
+	"os/signal"
 
 	server "solution/internal/http-server"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
+	"solution/internal/storage/pg"
 )
 
 func main() {
 	logger := slog.Default()
-
-	pgURL := os.Getenv("POSTGRES_CONN")
-	if pgURL == "" {
-		logger.Error("missed POSTGRES_CONN env")
-		os.Exit(1)
-	}
-
-	db, err := sqlx.Connect("pgx", pgURL)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer db.Close()
 
 	serverAddress := os.Getenv("SERVER_ADDRESS")
 	if serverAddress == "" {
@@ -32,10 +18,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := server.NewServer(serverAddress, logger)
+	pgURL := os.Getenv("POSTGRES_CONN")
+	if pgURL == "" {
+		logger.Error("missed POSTGRES_CONN env")
+		os.Exit(1)
+	}
 
-	err = s.Start()
+	db, err := pg.New(pgURL)
 	if err != nil {
 		logger.Error("server has been stopped", "error", err)
+		os.Exit(1)
+	}
+
+	s := server.NewServer(serverAddress, db, logger)
+	if err = s.Start(); err != nil {
+		logger.Error("server has been stopped", "error", err)
+	}
+
+	// gracefull shutdown
+	shut := make(chan os.Signal)
+	signal.Notify(shut, os.Interrupt, os.Kill)
+	<-shut
+	if err = db.Disconnect(); err != nil {
+		logger.Error("could not disconnect from database", "error", err)
 	}
 }
