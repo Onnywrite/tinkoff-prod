@@ -24,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := pg.New(pgURL)
+	db, err := pg.New(pgURL, logger)
 	if err != nil {
 		logger.Error("server has been stopped", "error", err)
 		os.Exit(1)
@@ -42,4 +42,5 @@ func main() {
 	if err = db.Disconnect(); err != nil {
 		logger.Error("could not disconnect from database", "error", err)
 	}
+	logger.Info("finished")
 }
