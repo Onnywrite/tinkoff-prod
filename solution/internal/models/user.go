@@ -15,6 +15,6 @@ type User struct {
 	CountryCode string `validate:"required,len=2" json:"countryCode"`
 	IsPublic    bool   `validate:"required" json:"isPublic"`
 	Phone       string `validate:"required,e164" json:"phone"`
-	Image       string `validate:"required,max=100" json:"image"`
+	Image       string `validate:"required,http_url,max=100" json:"image"`
 	Password    string `validate:"required,min=8" json:"password"`
 }

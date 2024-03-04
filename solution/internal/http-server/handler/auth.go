@@ -17,7 +17,7 @@ type UserRegistrator interface {
 
 func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	validateList := [][2]string{
-		{"Login", "invalid login, cannot be 'me'"},
+		{"Login", "invalid login, cannot be 'me' or empty"},
 		{"Email", "invalid email"},
 		{"CountryCode", "invalid country code, length must be 2"},
 		{"Phone", "invalid phone format"},

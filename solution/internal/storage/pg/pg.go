@@ -97,8 +97,6 @@ func (pg *PgStorage) Country(alpha2 string) (models.Country, error) {
 }
 
 func (pg *PgStorage) RegisterUser(user *models.User) (*models.Profile, error) {
-	const op = "pg.PgStorage_RegisterUser"
-
 	_, err := pg.db.Exec(fmt.Sprintf(`
     INSERT INTO users (login, email, countryFK, isPublic, phone, image, password)
     VALUES ('%s', '%s', (
