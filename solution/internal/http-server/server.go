@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"solution/internal/http-server/handler"
+	mymiddleware "solution/internal/http-server/middleware"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -31,7 +32,7 @@ func NewServer(address string, db Storage, logger *slog.Logger) *Server {
 func (s *Server) Start() error {
 	e := echo.New()
 
-	e.Use(middleware.Logger(), middleware.Recover())
+	e.Use(mymiddleware.Logger(s.logger), middleware.Recover())
 
 	e.GET("/api/ping", handler.GetPing())
 	e.GET("/api/countries", handler.GetCountries(s.db))
