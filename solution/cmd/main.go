@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	logger := slog.Default()
+	logger := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	serverAddress := os.Getenv("SERVER_ADDRESS")
 	if serverAddress == "" {
