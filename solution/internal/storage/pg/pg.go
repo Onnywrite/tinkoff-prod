@@ -110,14 +110,7 @@ func (pg *PgStorage) RegisterUser(user *models.User) (*models.Profile, error) {
 		return nil, err
 	}
 
-	return &models.Profile{
-		Login:       user.Login,
-		Email:       user.Email,
-		CountryCode: user.CountryCode,
-		IsPublic:    user.IsPublic,
-		Phone:       user.Phone,
-		Image:       user.Image,
-	}, nil
+	return user.Profile(), nil
 }
 
 func (pg *PgStorage) User(login string) (*models.User, error) {
@@ -137,6 +130,15 @@ func (pg *PgStorage) User(login string) (*models.User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (pg *PgStorage) Profile(login string) (*models.Profile, error) {
+	user, err := pg.User(login)
+	if err != nil {
+		return nil, err
+	}
+
+	return user.Profile(), nil
 }
 
 func (pg *PgStorage) Disconnect() error {

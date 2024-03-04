@@ -18,3 +18,14 @@ type User struct {
 	Image       string `validate:"required,http_url,max=100" json:"image"`
 	Password    string `validate:"required,min=8" json:"password"`
 }
+
+func (u *User) Profile() *Profile {
+	return &Profile{
+		Login:       u.Login,
+		Email:       u.Email,
+		CountryCode: u.CountryCode,
+		IsPublic:    u.IsPublic,
+		Phone:       u.Phone,
+		Image:       u.Image,
+	}
+}
