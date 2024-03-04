@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -15,15 +14,10 @@ func Logger(logger *slog.Logger) echo.MiddlewareFunc {
 			const op = "middleware.Logger"
 			log := logger.With(slog.String("op", op))
 
-			body, err := io.ReadAll(c.Request().Body)
-			if err != nil {
-				body = []byte{}
-			}
-
 			t := time.Now()
 
 			errText := ""
-			if err = next(c); err != nil {
+			if err := next(c); err != nil {
 				c.Error(err)
 				errText = err.Error()
 			}
@@ -32,7 +26,6 @@ func Logger(logger *slog.Logger) echo.MiddlewareFunc {
 			log.Info("request",
 				slog.String("uri", c.Request().RequestURI),
 				slog.String("method", c.Request().Method),
-				slog.String("body", string(body)),
 				slog.Int("code", c.Response().Status),
 				slog.String("status", http.StatusText(c.Response().Status)),
 				slog.Int("elapsed_ms", end),

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"solution/internal/models"
@@ -28,6 +29,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var u models.User
 		if err := c.Bind(&u); err != nil {
+			fmt.Println(u)
 			c.JSON(http.StatusInternalServerError, &crush{
 				Reason: "could not bind the body",
 			})
@@ -38,9 +40,11 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 
 		validateField := func(field, failMsg string) error {
 			err := validate.StructPartial(&u, field)
-			c.JSON(http.StatusBadRequest, &crush{
-				Reason: failMsg,
-			})
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &crush{
+					Reason: failMsg,
+				})
+			}
 			return err
 		}
 
