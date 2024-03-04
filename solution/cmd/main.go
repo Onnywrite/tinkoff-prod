@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,16 +13,26 @@ import (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	serverAddress := os.Getenv("SERVER_ADDRESS")
+	var serverAddress, pgURL string
+	flag.StringVar(&serverAddress, "server-address", "", "server port")
+	flag.StringVar(&pgURL, "pg-conn", "", "postgres connection string")
+
+	flag.Parse()
+
 	if serverAddress == "" {
-		logger.Error("missed SERVER_ADDRESS env (export smth like ':8080')")
-		os.Exit(1)
+		serverAddress = os.Getenv("SERVER_ADDRESS")
+		if serverAddress == "" {
+			logger.Error("missed SERVER_ADDRESS env (export smth like ':8080')")
+			os.Exit(1)
+		}
 	}
 
-	pgURL := os.Getenv("POSTGRES_CONN")
 	if pgURL == "" {
-		logger.Error("missed POSTGRES_CONN env")
-		os.Exit(1)
+		pgURL = os.Getenv("POSTGRES_CONN")
+		if pgURL == "" {
+			logger.Error("missed POSTGRES_CONN env")
+			os.Exit(1)
+		}
 	}
 
 	db, err := pg.New(pgURL, logger)
