@@ -24,21 +24,7 @@ func New(connString string, logger *slog.Logger) (*PgStorage, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(`
-	CREATE TABLE IF NOT EXISTS countries (
-		id SERIAL PRIMARY KEY,
-		name TEXT UNIQUE,
-		alpha2 TEXT,
-		alpha3 TEXT,
-		region TEXT
-	)`)
-	if err != nil {
-		logger.Error("could not create table countries", slog.String("err", err.Error()))
-	}
-	err = addCountries(db)
-	if err != nil {
-		logger.Error("could not insert countries", slog.String("err", err.Error()))
-	}
+	initializeTables(db, logger)
 
 	return &PgStorage{
 		db:     db,
@@ -110,6 +96,32 @@ func (pg *PgStorage) Country(alpha2 string) (models.Country, error) {
 
 }
 
+func (pg *PgStorage) RegisterUser(user *models.User) (*models.Profile, error) {
+	const op = "pg.PgStorage_RegisterUser"
+
+	_, err := pg.db.Exec(fmt.Sprintf(`
+    INSERT INTO users (login, email, countryFK, isPublic, phone, image, password)
+    VALUES ('%s', '%s', (
+      SELECT id
+      FROM countries
+      WHERE alpha2 = '%s'
+      LIMIT 1),
+    %t, '%s', '%s', CAST('%s' AS BYTEA));`,
+		user.Login, user.Email, user.CountryCode, user.IsPublic, user.Phone, user.Image, user.Password))
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.Profile{
+		Login:       user.Login,
+		Email:       user.Email,
+		CountryCode: user.CountryCode,
+		IsPublic:    user.IsPublic,
+		Phone:       user.Phone,
+		Image:       user.Image,
+	}, nil
+}
+
 func (pg *PgStorage) Disconnect() error {
 	return pg.db.Close()
 }
@@ -117,6 +129,42 @@ func (pg *PgStorage) Disconnect() error {
 // listString [a b c] -> 'a','b','c'
 func listString(strs ...string) string {
 	return "'" + strings.Join(strs, "','") + "'"
+}
+
+func initializeTables(db *sqlx.DB, logger *slog.Logger) {
+	_, err := db.Exec(`
+	  CREATE TABLE IF NOT EXISTS countries (
+		id SERIAL PRIMARY KEY,
+		name TEXT UNIQUE,
+		alpha2 CHAR(2),
+		alpha3 CHAR(3),
+		region TEXT
+	);
+  CREATE INDEX IF NOT EXISTS alpha2_idx ON countries(alpha2);`)
+	if err != nil {
+		logger.Error("could not create table countries", slog.String("err", err.Error()))
+	}
+
+	err = addCountries(db)
+	if err != nil {
+		logger.Error("could not insert countries", slog.String("err", err.Error()))
+	}
+
+	_, err = db.Exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    login CHARACTER VARYING(100) UNIQUE NOT NULL,
+    email CHARACTER VARYING(64) UNIQUE NOT NULL,
+    countryFK BIGINT REFERENCES countries(id),
+    isPublic BOOLEAN DEFAULT true,
+    phone CHARACTER VARYING(15) UNIQUE NOT NULL,
+    image CHARACTER VARYING(100),
+    password BYTEA NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS login_idx ON users(login);`)
+	if err != nil {
+		logger.Error("could not create table countries", slog.String("err", err.Error()))
+	}
 }
 
 func addCountries(db *sqlx.DB) error {
