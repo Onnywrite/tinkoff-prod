@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"solution/internal/models"
 	"solution/internal/storage"
@@ -22,6 +23,9 @@ type CountryProvider interface {
 func GetCountries(provider CountriesProvider) func(c echo.Context) error {
 	return func(c echo.Context) error {
 		regions := c.QueryParams()["region"]
+		for i := range regions {
+			regions[i] = strings.Trim(regions[i], "\"")
+		}
 
 		cs, err := provider.Countries(regions...)
 
@@ -43,8 +47,8 @@ func GetCountries(provider CountriesProvider) func(c echo.Context) error {
 	}
 }
 
-func GetCountriesAlpha(provider CountryProvider) func(c echo.Context) error {
-	alphaRegex := regexp.MustCompile(`^[A-Z]{2}$`)
+func GetCountryAlpha(provider CountryProvider) func(c echo.Context) error {
+	alphaRegex := regexp.MustCompile(`^[A-Za-z]{2}$`)
 
 	return func(c echo.Context) error {
 		alpha := c.Param("alpha2")
@@ -53,6 +57,7 @@ func GetCountriesAlpha(provider CountryProvider) func(c echo.Context) error {
 				Reason: "code does not seem to be an alpha2",
 			})
 		}
+		alpha = strings.ToUpper(alpha)
 
 		ctr, err := provider.Country(alpha)
 		if err != nil {

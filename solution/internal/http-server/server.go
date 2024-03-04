@@ -35,7 +35,7 @@ func (s *Server) Start() error {
 
 	e.GET("/api/ping", handler.GetPing())
 	e.GET("/api/countries", handler.GetCountries(s.db))
-	e.GET("/api/countries/:alpha2", handler.GetCountriesAlpha(s.db))
+	e.GET("/api/countries/:alpha2", handler.GetCountryAlpha(s.db))
 
 	s.logger.Info("server has been started", "address", s.address)
 	return e.Start(s.address)
