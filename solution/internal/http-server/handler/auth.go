@@ -3,11 +3,13 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"solution/internal/models"
 	"solution/internal/storage"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -29,7 +31,6 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var u models.User
 		if err := c.Bind(&u); err != nil {
-			fmt.Println(u)
 			c.JSON(http.StatusInternalServerError, &crush{
 				Reason: "could not bind the body",
 			})
@@ -76,5 +77,68 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			Reason: err.Error(),
 		})
 		return err
+	}
+}
+
+type UserProvider interface {
+	User(login string) (*models.User, error)
+}
+
+func PostSignIn(provider UserProvider) echo.HandlerFunc {
+	type loginData struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	}
+
+	return func(c echo.Context) error {
+		var data loginData
+		fmt.Println("a")
+		if err := c.Bind(&data); err != nil {
+			c.JSON(http.StatusUnauthorized, &crush{
+				Reason: "could not bind the body",
+			})
+			return err
+		}
+
+		fmt.Println("b")
+		usr, err := provider.User(data.Login)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, &crush{
+				Reason: "invalid login or password",
+			})
+			return err
+		}
+
+		fmt.Println("c")
+		if err = bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(data.Password)); err != nil {
+			c.JSON(http.StatusUnauthorized, &crush{
+				Reason: "invalid login or password",
+			})
+			return err
+		}
+
+		fmt.Println("d")
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"login": usr.Login,
+			"email": usr.Email,
+			"phone": usr.Phone,
+			"exp":   time.Now().Add(time.Hour).Unix(),
+		})
+
+		fmt.Println("e")
+		tokenString, err := token.SignedString([]byte("$my_%SUPER(n0t-so=MUch)_secret123"))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &crush{
+				Reason: "failed creating token",
+			})
+			return err
+		}
+
+		fmt.Println("f")
+		c.JSON(http.StatusOK, echo.Map{
+			"token": tokenString,
+		})
+
+		return nil
 	}
 }

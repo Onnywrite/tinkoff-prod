@@ -120,6 +120,25 @@ func (pg *PgStorage) RegisterUser(user *models.User) (*models.Profile, error) {
 	}, nil
 }
 
+func (pg *PgStorage) User(login string) (*models.User, error) {
+	row := pg.db.QueryRowx(fmt.Sprintf(`
+	SELECT login, email, alpha2 AS CountryCode, isPublic, phone, image, password
+	FROM users
+	INNER JOIN countries
+	ON countries.id = countryFK
+	WHERE login = '%s';`, login))
+	if err := row.Err(); err != nil {
+		return nil, err
+	}
+	// TODO: not found on nil value
+
+	var u models.User
+	if err := row.StructScan(&u); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
 func (pg *PgStorage) Disconnect() error {
 	return pg.db.Close()
 }
@@ -138,7 +157,7 @@ func initializeTables(db *sqlx.DB, logger *slog.Logger) {
 		alpha3 CHAR(3),
 		region TEXT
 	);
-  CREATE INDEX IF NOT EXISTS alpha2_idx ON countries(alpha2);`)
+  	CREATE INDEX IF NOT EXISTS alpha2_idx ON countries(alpha2);`)
 	if err != nil {
 		logger.Error("could not create table countries", slog.String("err", err.Error()))
 	}
@@ -149,7 +168,7 @@ func initializeTables(db *sqlx.DB, logger *slog.Logger) {
 	}
 
 	_, err = db.Exec(`
-  CREATE TABLE IF NOT EXISTS users (
+  	CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     login CHARACTER VARYING(100) UNIQUE NOT NULL,
     email CHARACTER VARYING(64) UNIQUE NOT NULL,

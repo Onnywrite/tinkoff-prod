@@ -20,6 +20,7 @@ type Storage interface {
 	handler.CountriesProvider
 	handler.CountryProvider
 	handler.UserRegistrator
+	handler.UserProvider
 }
 
 func NewServer(address string, db Storage, logger *slog.Logger) *Server {
@@ -38,7 +39,9 @@ func (s *Server) Start() error {
 	e.GET("/api/ping", handler.GetPing())
 	e.GET("/api/countries", handler.GetCountries(s.db))
 	e.GET("/api/countries/:alpha2", handler.GetCountryAlpha(s.db))
+
 	e.POST("/api/auth/register", handler.PostRegister(s.db))
+	e.POST("/api/auth/sign-in", handler.PostSignIn(s.db))
 
 	s.logger.Info("server has been started", "address", s.address)
 	return e.Start(s.address)
