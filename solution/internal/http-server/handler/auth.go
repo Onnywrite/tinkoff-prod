@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -92,7 +91,6 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 
 	return func(c echo.Context) error {
 		var data loginData
-		fmt.Println("a")
 		if err := c.Bind(&data); err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
 				Reason: "could not bind the body",
@@ -100,7 +98,6 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		fmt.Println("b")
 		usr, err := provider.User(data.Login)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
@@ -109,7 +106,6 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		fmt.Println("c")
 		if err = bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(data.Password)); err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
 				Reason: "invalid login or password",
@@ -117,7 +113,6 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		fmt.Println("d")
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 			"login": usr.Login,
 			"email": usr.Email,
@@ -125,7 +120,6 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			"exp":   time.Now().Add(time.Hour).Unix(),
 		})
 
-		fmt.Println("e")
 		tokenString, err := token.SignedString([]byte("$my_%SUPER(n0t-so=MUch)_secret123"))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &crush{
@@ -134,7 +128,6 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		fmt.Println("f")
 		c.JSON(http.StatusOK, echo.Map{
 			"token": tokenString,
 		})
