@@ -92,7 +92,7 @@ func (pg *PgStorage) Country(alpha2 string) (models.Country, error) {
 	row := pg.db.QueryRowx(fmt.Sprintf(`
   SELECT name, alpha2, alpha3, region
   FROM countries
-  WHERE alpha2 = %s
+  WHERE alpha2 = '%s'
   `, alpha2))
 	if row.Err() != nil {
 		pg.logger.Error("error while selecting a country by alpha2", slog.String("err", row.Err().Error()), slog.String("op", op))
