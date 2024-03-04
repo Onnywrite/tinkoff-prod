@@ -6,6 +6,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func GetPing(c echo.Context) error {
-	return c.String(http.StatusOK, "ok")
+func GetPing() func(c echo.Context) error {
+	return func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	}
 }
