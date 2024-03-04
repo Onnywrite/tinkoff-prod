@@ -20,7 +20,7 @@ type CountryProvider interface {
 	Country(alpha2 string) (models.Country, error)
 }
 
-func GetCountries(provider CountriesProvider) func(c echo.Context) error {
+func GetCountries(provider CountriesProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		regions := c.QueryParams()["region"]
 		for i := range regions {
@@ -47,7 +47,7 @@ func GetCountries(provider CountriesProvider) func(c echo.Context) error {
 	}
 }
 
-func GetCountryAlpha(provider CountryProvider) func(c echo.Context) error {
+func GetCountryAlpha(provider CountryProvider) echo.HandlerFunc {
 	alphaRegex := regexp.MustCompile(`^[A-Za-z]{2}$`)
 
 	return func(c echo.Context) error {
