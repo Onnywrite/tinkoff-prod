@@ -7,13 +7,15 @@ import (
 	"strings"
 
 	"solution/internal/models"
+	"solution/internal/storage"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )
 
 type PgStorage struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger *slog.Logger
 }
 
 func New(connString string, logger *slog.Logger) (*PgStorage, error) {
@@ -39,29 +41,73 @@ func New(connString string, logger *slog.Logger) (*PgStorage, error) {
 	}
 
 	return &PgStorage{
-		db: db,
+		db:     db,
+		logger: logger,
 	}, nil
 }
 
-func (pg *PgStorage) Countries(regions ...string) (countries []models.Country, err error) {
+func (pg *PgStorage) Countries(regions ...string) ([]models.Country, error) {
+	const op = "pg.PgStorage_Countries"
+
 	if len(regions) == 0 {
 		return pg.AllCountries()
 	}
 
-	countries = make([]models.Country, 0, 256)
-	err = pg.db.Select(&countries, fmt.Sprintf(`
+	countries := make([]models.Country, 0, 256)
+	err := pg.db.Select(&countries, fmt.Sprintf(`
 	SELECT name, alpha2, alpha3, region
 	FROM countries
 	WHERE region IN(%s)
 	ORDER BY alpha2 ASC`, listString(regions...)))
-	return
+	if err != nil {
+		pg.logger.Error("error while selecting countries", slog.String("err", err.Error()), slog.String("op", op))
+		return nil, storage.ErrInternal
+	}
+
+	if len(countries) == 0 {
+		pg.logger.Error("found 0 countries", slog.Any("regions", regions), slog.String("op", op))
+		return nil, storage.ErrCountriesNotFound
+	}
+
+	return countries, nil
 }
 
-func (pg *PgStorage) AllCountries() (countries []models.Country, err error) {
-	countries = make([]models.Country, 0, 256)
+func (pg *PgStorage) AllCountries() ([]models.Country, error) {
+	const op = "pg.PgStorage_AllCountries"
 
-	err = pg.db.Select(&countries, `SELECT name, alpha2, alpha3, region FROM countries ORDER BY alpha2`)
-	return countries, err
+	countries := make([]models.Country, 0, 256)
+
+	err := pg.db.Select(&countries, `SELECT name, alpha2, alpha3, region FROM countries ORDER BY alpha2`)
+	if err != nil {
+		pg.logger.Error("error while selecting all countries", slog.String("err", err.Error()), slog.String("op", op))
+		return nil, storage.ErrInternal
+	}
+
+	return countries, nil
+}
+
+func (pg *PgStorage) Country(alpha2 string) (models.Country, error) {
+	const op = "pg.PgStorage_Country"
+
+	row := pg.db.QueryRowx(fmt.Sprintf(`
+  SELECT name, alpha2, alpha3, region
+  FROM countries
+  WHERE alpha2 = %s
+  `, alpha2))
+	if row.Err() != nil {
+		pg.logger.Error("error while selecting a country by alpha2", slog.String("err", row.Err().Error()), slog.String("op", op))
+		return models.Country{}, storage.ErrInternal
+	}
+
+	var c models.Country
+	err := row.StructScan(&c)
+	if err != nil {
+		pg.logger.Error("error while getting a country by alpha2", slog.String("err", err.Error()), slog.String("op", op))
+		return models.Country{}, storage.ErrCountryNotFound
+	}
+
+	return c, nil
+
 }
 
 func (pg *PgStorage) Disconnect() error {
