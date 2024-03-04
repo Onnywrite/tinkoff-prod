@@ -44,15 +44,9 @@ func Authorized() echo.MiddlewareFunc {
 			}
 
 			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-				exp, ok2 := claims["exp"].(int64)
-				if !ok2 {
-					c.JSON(http.StatusUnauthorized, &crush{
-						Reason: "token has expired",
-					})
-					return err
-				}
+				exp := claims["exp"].(float64)
 
-				if time.Now().Unix() > exp {
+				if float64(time.Now().Unix()) > exp {
 					c.JSON(http.StatusUnauthorized, &crush{
 						Reason: "token has expired",
 					})
