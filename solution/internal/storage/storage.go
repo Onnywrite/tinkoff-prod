@@ -2,15 +2,10 @@ package storage
 
 import (
 	"errors"
-
-	"solution/internal/models"
 )
 
 var (
-	ErrCountryNotFound = errors.New("country not found")
+	ErrInternal          = errors.New("an error occurred while executin a query")
+	ErrCountryNotFound   = errors.New("country not found")
+	ErrCountriesNotFound = errors.New("countries not found")
 )
-
-type Storage interface {
-	Countries(regions ...string) ([]models.Country, error)
-	Disconnect() error
-}
