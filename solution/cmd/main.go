@@ -47,8 +47,8 @@ func main() {
 	}
 
 	// gracefull shutdown
-	shut := make(chan os.Signal)
-	signal.Notify(shut, os.Interrupt, os.Kill)
+	shut := make(chan os.Signal, 1)
+	signal.Notify(shut, os.Interrupt)
 	<-shut
 	if err = db.Disconnect(); err != nil {
 		logger.Error("could not disconnect from database", "error", err)
