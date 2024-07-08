@@ -21,5 +21,4 @@ COPY --from=builder /app/bin/application.elf ./
 
 COPY ./resources ./resources
 
-EXPOSE 8080:8080/tcp
 CMD ["./application.elf"]
