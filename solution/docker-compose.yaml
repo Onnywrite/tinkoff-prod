@@ -1,11 +1,11 @@
-name: sso
+name: social
 services:
   postgres:
     container_name: postgres
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=12345678
-      - POSTGRES_DATABASE=database
+      - POSTGRES_DB=database
     networks:
       - local_network
     volumes:
@@ -18,9 +18,9 @@ services:
           "CMD-SHELL",
           "pg_isready",
           "-d",
-          "$POSTGRES_DB",
+          "database",
           "-U",
-          "$POSTGRES_USER"
+          "user"
         ]
       interval: 2s
       timeout: 2s

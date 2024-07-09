@@ -1,24 +1,23 @@
-FROM golang:1.22.0-alpine3.19 AS builder
-
-RUN apk update && apk add ca-certificates git gcc g++ libc-dev binutils
+FROM golang:1.22.1-alpine3.19 AS builder
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
+
 RUN go mod download && go mod verify
 
 COPY . .
 
-RUN go build -o bin/application.elf cmd/main.go
+RUN go build -o ./bin/social ./cmd/main.go
 
 FROM alpine:3.19 AS runner
 
-RUN apk update && apk add ca-certificates libc6-compat openssh bash && rm -rf /var/cache/apk/*
+WORKDIR /lib/social
 
-WORKDIR /app
+COPY --from=builder /app/bin ./
 
-COPY --from=builder /app/bin/application.elf ./
+RUN adduser -DH socialusr && chown -R socialusr: /lib/social && chmod -R 700 /lib/social
 
-COPY ./resources ./resources
-
-CMD ["./application.elf"]
+USER socialusr
+ 
+CMD [ "./social" ]
