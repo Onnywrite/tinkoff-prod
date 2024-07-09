@@ -1,0 +1,62 @@
+name: social
+services:
+  postgres:
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=12345678
+      - POSTGRES_DB=database
+    networks:
+      - local_network
+    volumes:
+      - pg:/var/lib/postgresql/data
+    image: postgres:16.2-alpine3.19
+    user: postgres
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready",
+          "-d",
+          "database",
+          "-U",
+          "user"
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 8
+  migrate:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    container_name: migrate
+    networks:
+      - local_network
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://user:12345678@postgres:5432/database?sslmode=disable",
+        "up"
+      ]
+    image: migrate/migrate:v4.17.1
+  service:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - 8080:8080
+    container_name: service
+    networks:
+      - local_network
+    environment:
+      - POSTGRES_CONN=postgres://user:12345678@postgres:5432/database?sslmode=disable
+      - SERVER_ADDRESS=:8080
+    build: .
+networks:
+  local_network:
+volumes:
+  pg:

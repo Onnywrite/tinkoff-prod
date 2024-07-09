@@ -1,18 +1,4 @@
-#!/bin/bash
-set -e
-
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-  CREATE TABLE countries (
-    id SERIAL PRIMARY KEY,
-    name TEXT,
-    alpha2 TEXT,
-    alpha3 TEXT,
-    region TEXT
-  );
-
-  -- https://github.com/lukes/ISO-3166-Countries-with-Regional-Codes/blob/master/all/all.json
-  -- cat tests/countries.json| jq '.[] | [.name, ."alpha-2", ."alpha-3", .region] | @csv' -r | tr "'" " " | tr '"' "'" | awk -F "\n" '{print "("$1"),"}'
-  INSERT INTO countries (name, alpha2, alpha3, region) VALUES
+INSERT INTO countries (name, alpha2, alpha3, region) VALUES
   ('Afghanistan','AF','AFG','Asia'),
   ('Åland Islands','AX','ALA','Europe'),
   ('Albania','AL','ALB','Europe'),
@@ -262,4 +248,3 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   ('Yemen','YE','YEM','Asia'),
   ('Zambia','ZM','ZMB','Africa'),
   ('Zimbabwe','ZW','ZWE','Africa');
-EOSQL
