@@ -35,7 +35,7 @@ func (s *Server) Start() error {
 	e := echo.New()
 
 	{
-		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover())
+		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover(), mymiddleware.Cors())
 
 		g.GET("ping", handler.GetPing())
 		g.GET("countries", handler.GetCountries(s.db))
