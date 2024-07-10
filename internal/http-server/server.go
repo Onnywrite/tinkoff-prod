@@ -21,7 +21,6 @@ type Storage interface {
 	handler.CountryProvider
 	handler.UserRegistrator
 	handler.UserProvider
-	handler.ProfileProvider
 }
 
 func NewServer(address string, db Storage, logger *slog.Logger) *Server {
@@ -35,15 +34,16 @@ func NewServer(address string, db Storage, logger *slog.Logger) *Server {
 func (s *Server) Start() error {
 	e := echo.New()
 
-	e.Use(mymiddleware.Logger(s.logger), middleware.Recover())
+	{
+		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover(), mymiddleware.Cors())
 
-	e.GET("/api/ping", handler.GetPing())
-	e.GET("/api/countries", handler.GetCountries(s.db))
-	e.GET("/api/countries/:alpha2", handler.GetCountryAlpha(s.db))
-	e.GET("/api/me/profile", handler.GetMeProfile(s.db), mymiddleware.Authorized())
-
-	e.POST("/api/auth/register", handler.PostRegister(s.db))
-	e.POST("/api/auth/sign-in", handler.PostSignIn(s.db))
+		g.GET("ping", handler.GetPing())
+		g.GET("countries", handler.GetCountries(s.db))
+		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
+		g.POST("auth/register", handler.PostRegister(s.db))
+		g.POST("auth/sign-in", handler.PostSignIn(s.db))
+		g.GET("me/profile", handler.GetMeProfile(s.db), mymiddleware.Authorized())
+	}
 
 	s.logger.Info("server has been started", "address", s.address)
 	return e.Start(s.address)

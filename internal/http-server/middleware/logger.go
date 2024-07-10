@@ -9,11 +9,11 @@ import (
 )
 
 func Logger(logger *slog.Logger) echo.MiddlewareFunc {
+	const op = "middleware.Logger"
+	log := logger.With(slog.String("op", op))
+
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			const op = "middleware.Logger"
-			log := logger.With(slog.String("op", op))
-
 			t := time.Now()
 
 			errText := ""

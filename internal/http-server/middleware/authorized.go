@@ -33,6 +33,7 @@ func Authorized() echo.MiddlewareFunc {
 					return nil, errors.New("unexpected signing method")
 				}
 
+				// TODO: add secret config
 				return []byte("$my_%SUPER(n0t-so=MUch)_secret123"), nil
 			})
 
@@ -53,9 +54,7 @@ func Authorized() echo.MiddlewareFunc {
 					return err
 				}
 
-				c.Set("login", claims["login"])
 				c.Set("email", claims["email"])
-				c.Set("phone", claims["phone"])
 			} else {
 				c.JSON(http.StatusUnauthorized, &crush{
 					Reason: "invalid token",

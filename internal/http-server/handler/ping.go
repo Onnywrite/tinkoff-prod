@@ -8,6 +8,6 @@ import (
 
 func GetPing() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return c.String(http.StatusOK, "ok")
+		return c.JSONBlob(http.StatusOK, []byte("{}"))
 	}
 }

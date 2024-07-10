@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -14,21 +15,30 @@ import (
 )
 
 type UserRegistrator interface {
-	RegisterUser(user *models.User) (*models.Profile, error)
+	SaveUser(ctx context.Context, user *models.User) (*models.User, error)
+}
+
+type dateOnly time.Time
+
+func (d *dateOnly) UnmarshalJSON(b []byte) error {
+	t, err := time.Parse(time.DateOnly, string(b))
+	if err != nil {
+		return err
+	}
+	*d = dateOnly(t)
+	return nil
 }
 
 func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
-	validateList := [][2]string{
-		{"Login", "invalid login, cannot be 'me' or empty"},
-		{"Email", "invalid email"},
-		{"CountryCode", "invalid country code, length must be 2"},
-		{"Phone", "invalid phone format"},
-		{"Image", "image URI is too long"},
-		{"Password", "password is too short, must be at least 8 symbols"},
+	type registerData struct {
+		Name     string   `validate:"required,min=2,max=32" json:"name"`
+		Lastname string   `validate:"required,min=2,max=32" json:"surname"`
+		Email    string   `validate:"required,email" json:"email"`
+		Password string   `validate:"required,min=8" json:"password"`
+		Birthday dateOnly `json:"birthday"`
 	}
-
 	return func(c echo.Context) error {
-		var u models.User
+		var u registerData
 		if err := c.Bind(&u); err != nil {
 			c.JSON(http.StatusInternalServerError, &crush{
 				Reason: "could not bind the body",
@@ -38,29 +48,38 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 
 		validate := validator.New()
 
-		validateField := func(field, failMsg string) error {
-			err := validate.StructPartial(&u, field)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &crush{
-					Reason: failMsg,
+		err := validate.StructCtx(context.TODO(), &u)
+		if err != nil {
+			if ve, ok := err.(validator.ValidationErrors); ok {
+				c.JSON(http.StatusBadRequest, echo.Map{
+					"reason": "validation errors",
+					"fields": ve.Error(),
 				})
-			}
-			return err
-		}
-
-		for _, valid := range validateList {
-			if err := validateField(valid[0], valid[1]); err != nil {
 				return err
 			}
+			c.JSON(http.StatusInternalServerError, &crush{
+				Reason: "validation error",
+			})
+			return err
 		}
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		u.Password = string(hash)
 
-		profile, err := registrator.RegisterUser(&u)
+		profile, err := registrator.SaveUser(context.TODO(), &models.User{
+			Name:     u.Name,
+			Lastname: u.Lastname,
+			Email:    u.Email,
+			Country: models.Country{
+				Id: 70,
+			},
+			IsPublic:     true,
+			Image:        "",
+			PasswordHash: string(hash),
+			Birthday:     time.Time(u.Birthday),
+		})
 		status := http.StatusOK
 		switch {
 		case err == storage.ErrInternal:
@@ -80,12 +99,12 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 }
 
 type UserProvider interface {
-	User(login string) (*models.User, error)
+	UserByEmail(ctx context.Context, email string) (*models.User, error)
 }
 
 func PostSignIn(provider UserProvider) echo.HandlerFunc {
 	type loginData struct {
-		Login    string `json:"login"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
@@ -98,40 +117,62 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		usr, err := provider.User(data.Login)
+		usr, err := provider.UserByEmail(context.TODO(), data.Email)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
-				Reason: "invalid login or password",
+				Reason: "invalid email or password",
 			})
 			return err
 		}
 
-		if err = bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(data.Password)); err != nil {
+		if err = bcrypt.CompareHashAndPassword([]byte(usr.PasswordHash), []byte(data.Password)); err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
-				Reason: "invalid login or password",
+				Reason: "invalid email or password",
 			})
 			return err
 		}
 
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"login": usr.Login,
-			"email": usr.Email,
-			"phone": usr.Phone,
-			"exp":   time.Now().Add(time.Hour).Unix(),
-		})
-
-		tokenString, err := token.SignedString([]byte("$my_%SUPER(n0t-so=MUch)_secret123"))
+		access, refresh, err := createTokens(usr, []byte("$my_%SUPER(n0t-so=MUch)_secret123"))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "failed creating token",
+				Reason: "error while generating tokens",
 			})
 			return err
 		}
 
 		c.JSON(http.StatusOK, echo.Map{
-			"token": tokenString,
+			"refresh": refresh,
+			"access":  access,
 		})
 
 		return nil
 	}
+}
+
+func createTokens(usr *models.User, secret []byte) (access string, refresh string, err error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id":    usr.Id,
+		"email": usr.Email,
+		// TODO: exp config
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+
+	// TODO: secret config
+	access, err = token.SignedString(secret)
+	if err != nil {
+		return "", "", err
+	}
+
+	token = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id": usr.Id,
+		// TODO: exp config
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+
+	refresh, err = token.SignedString(secret)
+	if err != nil {
+		return "", "", err
+	}
+
+	return
 }

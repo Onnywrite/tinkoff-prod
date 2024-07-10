@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdin, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	var serverAddress, pgURL string
 	flag.StringVar(&serverAddress, "server-address", "", "server port")
@@ -35,7 +35,7 @@ func main() {
 		}
 	}
 
-	db, err := pg.New(pgURL, logger)
+	db, err := pg.New(pgURL)
 	if err != nil {
 		logger.Error("server has been stopped", "error", err)
 		os.Exit(1)
