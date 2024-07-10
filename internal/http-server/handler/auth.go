@@ -104,7 +104,18 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 		case err != nil:
 			status = http.StatusConflict
 		default:
-			c.JSON(status, &profile)
+			access, refresh, err := createTokens(profile, []byte("$my_%SUPER(n0t-so=MUch)_secret123"))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &crush{
+					Reason: "error while generating tokens",
+				})
+				return err
+			}
+
+			c.JSON(http.StatusOK, echo.Map{
+				"refresh": refresh,
+				"access":  access,
+			})
 			return nil
 		}
 
@@ -171,7 +182,7 @@ func createTokens(usr *models.User, secret []byte) (access string, refresh strin
 		"id":    usr.Id,
 		"email": usr.Email,
 		// TODO: exp config
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"exp": time.Now().Add(5 * time.Minute).Unix(),
 	})
 
 	// TODO: secret config
@@ -183,7 +194,7 @@ func createTokens(usr *models.User, secret []byte) (access string, refresh strin
 	token = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": usr.Id,
 		// TODO: exp config
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"exp": time.Now().Add(168 * time.Hour).Unix(),
 	})
 
 	refresh, err = token.SignedString(secret)
