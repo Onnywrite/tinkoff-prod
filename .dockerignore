@@ -1,3 +1,4 @@
+ignore-*
 .dockerignore
 Dockerfile
 README.md
