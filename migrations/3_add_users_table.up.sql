@@ -1,11 +1,12 @@
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    login CHARACTER VARYING(100) UNIQUE NOT NULL,
+    name VARCHAR(32) NOT NULL,
+    lastname VARCHAR(32) NOT NULL,
     email CHARACTER VARYING(64) UNIQUE NOT NULL,
     country_fk BIGINT REFERENCES countries(id),
     is_public BOOLEAN DEFAULT true,
-    phone CHARACTER VARYING(15) UNIQUE NOT NULL,
     image CHARACTER VARYING(100),
-    password BYTEA NOT NULL
+    password CHAR(60) NOT NULL,
+    birthday DATE NOT NULL
 );
-CREATE INDEX IF NOT EXISTS login_idx ON users(login);
+CREATE INDEX IF NOT EXISTS email_idx ON users(email);
