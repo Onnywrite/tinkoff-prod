@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"solution/internal/models"
-	"solution/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/models"
+	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 
 	"github.com/labstack/echo/v4"
 )

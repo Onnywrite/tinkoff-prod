@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/signal"
 
-	server "solution/internal/http-server"
-	"solution/internal/storage/pg"
+	server "github.com/Onnywrite/tinkoff-prod/internal/http-server"
+	"github.com/Onnywrite/tinkoff-prod/internal/storage/pg"
 )
 
 func main() {

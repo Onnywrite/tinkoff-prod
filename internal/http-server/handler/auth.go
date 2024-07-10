@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"solution/internal/models"
-	"solution/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/models"
+	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"

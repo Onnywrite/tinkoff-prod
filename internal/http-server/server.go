@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"solution/internal/http-server/handler"
-	mymiddleware "solution/internal/http-server/middleware"
+	"github.com/Onnywrite/tinkoff-prod/internal/http-server/handler"
+	mymiddleware "github.com/Onnywrite/tinkoff-prod/internal/http-server/middleware"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
