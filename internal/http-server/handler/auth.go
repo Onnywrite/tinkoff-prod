@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"solution/internal/models"
@@ -21,11 +24,25 @@ type UserRegistrator interface {
 type dateOnly time.Time
 
 func (d *dateOnly) UnmarshalJSON(b []byte) error {
-	t, err := time.Parse(time.DateOnly, string(b))
+	ss := strings.Split(strings.Trim(string(b), "\""), "-")
+	if len(ss) != 3 {
+		return fmt.Errorf("invalid date")
+	}
+
+	yyyy, err := strconv.ParseInt(ss[0], 10, 32)
 	if err != nil {
 		return err
 	}
-	*d = dateOnly(t)
+	mm, err := strconv.ParseInt(ss[1], 10, 32)
+	if err != nil {
+		return err
+	}
+	dd, err := strconv.ParseInt(ss[2], 10, 32)
+	if err != nil {
+		return err
+	}
+	*d = dateOnly(time.Date(int(yyyy), time.Month(mm), int(dd), 0, 0, 0, 0, time.UTC))
+
 	return nil
 }
 
@@ -87,7 +104,18 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 		case err != nil:
 			status = http.StatusConflict
 		default:
-			c.JSON(status, &profile)
+			access, refresh, err := createTokens(profile, []byte("$my_%SUPER(n0t-so=MUch)_secret123"))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &crush{
+					Reason: "error while generating tokens",
+				})
+				return err
+			}
+
+			c.JSON(http.StatusOK, echo.Map{
+				"refresh": refresh,
+				"access":  access,
+			})
 			return nil
 		}
 
@@ -154,7 +182,7 @@ func createTokens(usr *models.User, secret []byte) (access string, refresh strin
 		"id":    usr.Id,
 		"email": usr.Email,
 		// TODO: exp config
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"exp": time.Now().Add(5 * time.Minute).Unix(),
 	})
 
 	// TODO: secret config
@@ -166,7 +194,7 @@ func createTokens(usr *models.User, secret []byte) (access string, refresh strin
 	token = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": usr.Id,
 		// TODO: exp config
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"exp": time.Now().Add(168 * time.Hour).Unix(),
 	})
 
 	refresh, err = token.SignedString(secret)

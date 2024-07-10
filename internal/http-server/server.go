@@ -2,6 +2,7 @@ package server
 
 import (
 	"log/slog"
+	"net/http"
 
 	"solution/internal/http-server/handler"
 	mymiddleware "solution/internal/http-server/middleware"
@@ -34,8 +35,14 @@ func NewServer(address string, db Storage, logger *slog.Logger) *Server {
 func (s *Server) Start() error {
 	e := echo.New()
 
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions, http.MethodPut, http.MethodDelete},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
+
 	{
-		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover(), mymiddleware.Cors())
+		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover())
 
 		g.GET("ping", handler.GetPing())
 		g.GET("countries", handler.GetCountries(s.db))
