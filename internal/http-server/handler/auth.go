@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"solution/internal/models"
@@ -21,11 +24,25 @@ type UserRegistrator interface {
 type dateOnly time.Time
 
 func (d *dateOnly) UnmarshalJSON(b []byte) error {
-	t, err := time.Parse(time.DateOnly, string(b))
+	ss := strings.Split(strings.Trim(string(b), "\""), "-")
+	if len(ss) != 3 {
+		return fmt.Errorf("invalid date")
+	}
+
+	yyyy, err := strconv.ParseInt(ss[0], 10, 32)
 	if err != nil {
 		return err
 	}
-	*d = dateOnly(t)
+	mm, err := strconv.ParseInt(ss[1], 10, 32)
+	if err != nil {
+		return err
+	}
+	dd, err := strconv.ParseInt(ss[2], 10, 32)
+	if err != nil {
+		return err
+	}
+	*d = dateOnly(time.Date(int(yyyy), time.Month(mm), int(dd), 0, 0, 0, 0, time.UTC))
+
 	return nil
 }
 
