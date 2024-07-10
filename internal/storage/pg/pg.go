@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"solution/internal/models"
-	"solution/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/models"
+	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"

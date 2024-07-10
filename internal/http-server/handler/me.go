@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"solution/internal/models"
+	"github.com/Onnywrite/tinkoff-prod/internal/models"
 
 	"github.com/labstack/echo/v4"
 )

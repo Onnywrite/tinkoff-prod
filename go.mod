@@ -1,4 +1,4 @@
-module solution
+module github.com/Onnywrite/tinkoff-prod
 
 go 1.22.0
 
