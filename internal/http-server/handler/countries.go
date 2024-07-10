@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -13,11 +14,11 @@ import (
 )
 
 type CountriesProvider interface {
-	Countries(regions ...string) ([]models.Country, error)
+	Countries(ctx context.Context, regions ...string) ([]models.Country, error)
 }
 
 type CountryProvider interface {
-	Country(alpha2 string) (models.Country, error)
+	Country(ctx context.Context, alpha2 string) (models.Country, error)
 }
 
 func GetCountries(provider CountriesProvider) echo.HandlerFunc {
@@ -27,7 +28,7 @@ func GetCountries(provider CountriesProvider) echo.HandlerFunc {
 			regions[i] = strings.Trim(regions[i], "\"")
 		}
 
-		cs, err := provider.Countries(regions...)
+		cs, err := provider.Countries(context.TODO(), regions...)
 
 		if err == storage.ErrCountriesNotFound {
 			c.JSON(http.StatusNotFound, &crush{
@@ -59,7 +60,7 @@ func GetCountryAlpha(provider CountryProvider) echo.HandlerFunc {
 		}
 		alpha = strings.ToUpper(alpha)
 
-		ctr, err := provider.Country(alpha)
+		ctr, err := provider.Country(context.TODO(), alpha)
 		if err != nil {
 			c.JSON(http.StatusNotFound, &crush{
 				Reason: fmt.Sprintf("could not find countries with alpha2 '%s'", alpha),
