@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -104,7 +104,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 		case err != nil:
 			status = http.StatusConflict
 		default:
-			access, refresh, err := createTokens(profile, []byte("$my_%SUPER(n0t-so=MUch)_secret123"))
+			access, refresh, err := createTokens(profile)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, &crush{
 					Reason: "error while generating tokens",
@@ -126,81 +126,24 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	}
 }
 
-type UserProvider interface {
-	UserByEmail(ctx context.Context, email string) (*models.User, error)
-}
-
-func PostSignIn(provider UserProvider) echo.HandlerFunc {
-	type loginData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+func createTokens(usr *models.User) (tokens.AccessString, tokens.RefreshString, error) {
+	access := tokens.Access{
+		Id:    usr.Id,
+		Email: usr.Email,
+	}
+	refresh := tokens.Refresh{
+		Id: usr.Id,
 	}
 
-	return func(c echo.Context) error {
-		var data loginData
-		if err := c.Bind(&data); err != nil {
-			c.JSON(http.StatusUnauthorized, &crush{
-				Reason: "could not bind the body",
-			})
-			return err
-		}
-
-		usr, err := provider.UserByEmail(context.TODO(), data.Email)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &crush{
-				Reason: "invalid email or password",
-			})
-			return err
-		}
-
-		if err = bcrypt.CompareHashAndPassword([]byte(usr.PasswordHash), []byte(data.Password)); err != nil {
-			c.JSON(http.StatusUnauthorized, &crush{
-				Reason: "invalid email or password",
-			})
-			return err
-		}
-
-		access, refresh, err := createTokens(usr, []byte("$my_%SUPER(n0t-so=MUch)_secret123"))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "error while generating tokens",
-			})
-			return err
-		}
-
-		c.JSON(http.StatusOK, echo.Map{
-			"refresh": refresh,
-			"access":  access,
-		})
-
-		return nil
-	}
-}
-
-func createTokens(usr *models.User, secret []byte) (access string, refresh string, err error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":    usr.Id,
-		"email": usr.Email,
-		// TODO: exp config
-		"exp": time.Now().Add(5 * time.Minute).Unix(),
-	})
-
-	// TODO: secret config
-	access, err = token.SignedString(secret)
+	accessStr, err := access.Sign()
 	if err != nil {
 		return "", "", err
 	}
 
-	token = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": usr.Id,
-		// TODO: exp config
-		"exp": time.Now().Add(168 * time.Hour).Unix(),
-	})
-
-	refresh, err = token.SignedString(secret)
+	refreshStr, err := refresh.Sign()
 	if err != nil {
 		return "", "", err
 	}
 
-	return
+	return accessStr, refreshStr, nil
 }
