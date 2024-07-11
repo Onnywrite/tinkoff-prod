@@ -1,12 +1,10 @@
 package middleware
 
 import (
-	"errors"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/labstack/echo/v4"
 )
 
@@ -26,41 +24,17 @@ func Authorized() echo.MiddlewareFunc {
 					Reason: "invalid authorization header format",
 				})
 			}
-			tokenString := bearerToken[1]
+			access := tokens.AccessString(bearerToken[1])
 
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, errors.New("unexpected signing method")
-				}
-
-				// TODO: add secret config
-				return []byte("$my_%SUPER(n0t-so=MUch)_secret123"), nil
-			})
-
+			token, err := access.ParseVerify()
 			if err != nil {
-				c.JSON(http.StatusUnauthorized, &crush{
-					Reason: "unexpected signing method on token",
-				})
-				return err
-			}
-
-			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-				exp := claims["exp"].(float64)
-
-				if float64(time.Now().Unix()) > exp {
-					c.JSON(http.StatusUnauthorized, &crush{
-						Reason: "token has expired",
-					})
-					return err
-				}
-
-				c.Set("email", claims["email"])
-			} else {
 				c.JSON(http.StatusUnauthorized, &crush{
 					Reason: "invalid token",
 				})
 				return err
 			}
+			c.Set("email", token.Email)
+			c.Set("id", token.Id)
 
 			return next(c)
 		}
