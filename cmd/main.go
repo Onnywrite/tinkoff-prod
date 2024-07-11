@@ -5,13 +5,20 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"time"
 
 	server "github.com/Onnywrite/tinkoff-prod/internal/http-server"
+	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage/pg"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	tokens.AccessSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
+	tokens.RefreshSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
+	tokens.AccessTTL = time.Minute
+	tokens.RefreshTTL = 240 * time.Hour
 
 	var serverAddress, pgURL string
 	flag.StringVar(&serverAddress, "server-address", "", "server port")
