@@ -38,7 +38,7 @@ func (s *Server) Start() error {
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions, http.MethodPut, http.MethodDelete},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
 	{
@@ -49,7 +49,7 @@ func (s *Server) Start() error {
 		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
 		g.POST("auth/register", handler.PostRegister(s.db))
 		g.POST("auth/sign-in", handler.PostSignIn(s.db))
-		g.GET("me/profile", handler.GetMeProfile(s.db), mymiddleware.Authorized())
+		g.GET("me", handler.GetMeProfile(s.db), mymiddleware.Authorized())
 	}
 
 	s.logger.Info("server has been started", "address", s.address)
