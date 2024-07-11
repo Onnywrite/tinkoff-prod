@@ -58,12 +58,15 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			PasswordHash: string(hash),
 			Birthday:     time.Time(u.Birthday),
 		})
-		status := http.StatusOK
 		switch {
 		case err == storage.ErrInternal:
-			status = http.StatusInternalServerError
+			c.JSON(http.StatusInternalServerError, &crush{
+				Reason: "internal error",
+			})
 		case err != nil:
-			status = http.StatusConflict
+			c.JSON(http.StatusConflict, &crush{
+				Reason: "user already exists",
+			})
 		default:
 			pair, err := createTokens(user)
 			if err != nil {
@@ -80,9 +83,6 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			return nil
 		}
 
-		c.JSON(status, &crush{
-			Reason: err.Error(),
-		})
 		return err
 	}
 }
