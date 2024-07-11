@@ -85,7 +85,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			return err
 		}
 
-		profile, err := registrator.SaveUser(context.TODO(), &models.User{
+		user, err := registrator.SaveUser(context.TODO(), &models.User{
 			Name:     u.Name,
 			Lastname: u.Lastname,
 			Email:    u.Email,
@@ -104,7 +104,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 		case err != nil:
 			status = http.StatusConflict
 		default:
-			access, refresh, err := createTokens(profile)
+			pair, err := createTokens(user)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, &crush{
 					Reason: "error while generating tokens",
@@ -112,9 +112,9 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 				return err
 			}
 
-			c.JSON(http.StatusOK, echo.Map{
-				"refresh": refresh,
-				"access":  access,
+			c.JSON(http.StatusOK, &tokensResponse{
+				Profile: getProfile(user),
+				Pair:    pair,
 			})
 			return nil
 		}
@@ -126,7 +126,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	}
 }
 
-func createTokens(usr *models.User) (tokens.AccessString, tokens.RefreshString, error) {
+func createTokens(usr *models.User) (tokens.Pair, error) {
 	access := tokens.Access{
 		Id:    usr.Id,
 		Email: usr.Email,
@@ -137,13 +137,16 @@ func createTokens(usr *models.User) (tokens.AccessString, tokens.RefreshString, 
 
 	accessStr, err := access.Sign()
 	if err != nil {
-		return "", "", err
+		return tokens.Pair{}, err
 	}
 
 	refreshStr, err := refresh.Sign()
 	if err != nil {
-		return "", "", err
+		return tokens.Pair{}, err
 	}
 
-	return accessStr, refreshStr, nil
+	return tokens.Pair{
+		Access:  accessStr,
+		Refresh: refreshStr,
+	}, nil
 }

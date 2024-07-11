@@ -28,7 +28,7 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		usr, err := provider.UserByEmail(context.TODO(), data.Email)
+		user, err := provider.UserByEmail(context.TODO(), data.Email)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
 				Reason: "invalid email or password",
@@ -36,14 +36,14 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		if err = bcrypt.CompareHashAndPassword([]byte(usr.PasswordHash), []byte(data.Password)); err != nil {
+		if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(data.Password)); err != nil {
 			c.JSON(http.StatusUnauthorized, &crush{
 				Reason: "invalid email or password",
 			})
 			return err
 		}
 
-		access, refresh, err := createTokens(usr)
+		pair, err := createTokens(user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &crush{
 				Reason: "error while generating tokens",
@@ -51,9 +51,9 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		c.JSON(http.StatusOK, echo.Map{
-			"refresh": refresh,
-			"access":  access,
+		c.JSON(http.StatusOK, &tokensResponse{
+			Profile: getProfile(user),
+			Pair:    pair,
 		})
 
 		return nil
