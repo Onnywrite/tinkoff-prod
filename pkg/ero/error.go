@@ -3,6 +3,7 @@ package ero
 import (
 	"context"
 	"encoding/json"
+	"errors"
 )
 
 var CurrentService string = "SomeService"
@@ -32,10 +33,7 @@ func (e *TheBestError[T]) Error() string {
 }
 
 func (e *TheBestError[T]) Is(anotherErr error) bool {
-	if tbe, ok := anotherErr.(*TheBestError[T]); ok {
-		return e.ErrorMessage == tbe.ErrorMessage
-	}
-	return e.ErrorMessage.Error() == anotherErr.Error()
+	return errors.Is(e.Unwrap(), anotherErr)
 }
 
 func (e *TheBestError[T]) Unwrap() error {
