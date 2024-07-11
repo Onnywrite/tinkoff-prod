@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"unicode"
 
-	"solution/internal/models"
-	"solution/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/models"
+	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 
 	"github.com/labstack/echo/v4"
 )
@@ -21,11 +22,17 @@ type CountryProvider interface {
 	Country(ctx context.Context, alpha2 string) (models.Country, error)
 }
 
+func capitalizeFirstLetter(s string) string {
+	runes := []rune(strings.ToLower(strings.Trim(s, "\" ")))
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
+}
+
 func GetCountries(provider CountriesProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		regions := c.QueryParams()["region"]
 		for i := range regions {
-			regions[i] = strings.Trim(regions[i], "\"")
+			regions[i] = capitalizeFirstLetter(regions[i])
 		}
 
 		cs, err := provider.Countries(context.TODO(), regions...)
