@@ -86,7 +86,7 @@ func (pg *PgStorage) Country(ctx context.Context, alpha2 string) (c models.Count
 		return models.Country{}, err
 	}
 
-	err = stmt.SelectContext(ctx, &c, alpha2)
+	err = stmt.GetContext(ctx, &c, alpha2)
 	if err != nil {
 		return models.Country{}, storage.ErrInternal
 	}
