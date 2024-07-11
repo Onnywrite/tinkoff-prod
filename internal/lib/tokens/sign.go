@@ -24,11 +24,6 @@ type Refresh struct {
 	Exp int64
 }
 
-type Tokens struct {
-	Access  Access  `json:"access"`
-	Refresh Refresh `json:"refresh"`
-}
-
 func (a *Access) Sign() (AccessString, error) {
 	return a.SignSecret(AccessSecret)
 }
