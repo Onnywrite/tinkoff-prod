@@ -15,6 +15,14 @@ type LoggerDomainOption struct {
 	level  string
 }
 
+func MustNewLoggerDomainOption(domain string, level string) LoggerDomainOption {
+	opt, err := NewLoggerDomainOption(domain, level)
+	if err != nil {
+		panic(err)
+	}
+	return opt
+}
+
 func NewLoggerDomainOption(domain string, level string) (LoggerDomainOption, ero.Error) {
 	faults := make([]LoggerConfigFault, 0)
 	if level != "debug" && level != "info" && level != "warn" && level != "error" {
@@ -41,6 +49,14 @@ func NewLoggerDomainOption(domain string, level string) (LoggerDomainOption, ero
 type LoggerConfigFault struct {
 	ConfigField string
 	Message     string
+}
+
+func MustNewConfig(handler string, addSource bool, options ...LoggerDomainOption) LoggerConfig {
+	cfg, err := NewConfig(handler, addSource, options...)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
 }
 
 func NewConfig(handler string, addSource bool, options ...LoggerDomainOption) (LoggerConfig, ero.Error) {
