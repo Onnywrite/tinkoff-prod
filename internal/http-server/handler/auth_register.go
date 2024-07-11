@@ -15,7 +15,7 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
-	"github.com/Onnywrite/tinkoff-prod/pkg/ero/erolog"
+	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
