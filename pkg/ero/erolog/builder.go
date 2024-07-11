@@ -11,9 +11,13 @@ type ContextBuilder struct {
 }
 
 func NewContextBuilder() *ContextBuilder {
+	return BuilderFrom(context.Background())
+}
+
+func BuilderFrom(parent context.Context) *ContextBuilder {
 	return &ContextBuilder{
 		ctx:    NewContext(),
-		parent: context.Background(),
+		parent: parent,
 	}
 }
 
@@ -31,6 +35,9 @@ func (b *ContextBuilder) WithParent(parent context.Context) *ContextBuilder {
 }
 
 func (b *ContextBuilder) With(key string, value interface{}) *ContextBuilder {
+	// if err, ok := value.(error); ok {
+	// 	value = err.Error()
+	// }
 	b.ctx.attrs[key] = value
 	return b
 }
