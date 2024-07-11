@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -43,7 +44,7 @@ func PostSignIn(provider UserProvider) echo.HandlerFunc {
 			return err
 		}
 
-		pair, err := createTokens(user)
+		pair, err := tokens.NewPair(user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &crush{
 				Reason: "error while generating tokens",

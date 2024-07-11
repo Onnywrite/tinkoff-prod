@@ -68,7 +68,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 				Reason: "user already exists",
 			})
 		default:
-			pair, err := createTokens(user)
+			pair, err := tokens.NewPair(user)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, &crush{
 					Reason: "error while generating tokens",
@@ -85,31 +85,6 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 
 		return err
 	}
-}
-
-func createTokens(usr *models.User) (tokens.Pair, error) {
-	access := tokens.Access{
-		Id:    usr.Id,
-		Email: usr.Email,
-	}
-	refresh := tokens.Refresh{
-		Id: usr.Id,
-	}
-
-	accessStr, err := access.Sign()
-	if err != nil {
-		return tokens.Pair{}, err
-	}
-
-	refreshStr, err := refresh.Sign()
-	if err != nil {
-		return tokens.Pair{}, err
-	}
-
-	return tokens.Pair{
-		Access:  accessStr,
-		Refresh: refreshStr,
-	}, nil
 }
 
 type dateOnly time.Time
