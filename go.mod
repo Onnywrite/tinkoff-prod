@@ -1,6 +1,6 @@
 module github.com/Onnywrite/tinkoff-prod
 
-go 1.22.0
+go 1.22.5
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
