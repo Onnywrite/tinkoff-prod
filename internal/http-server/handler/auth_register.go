@@ -4,15 +4,19 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
+	"github.com/Onnywrite/tinkoff-prod/pkg/ero/erolog"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,39 +25,7 @@ type UserRegistrator interface {
 	SaveUser(ctx context.Context, user *models.User) (*models.User, error)
 }
 
-type dateOnly time.Time
-
-func (d *dateOnly) UnmarshalJSON(b []byte) error {
-	ss := strings.Split(strings.Trim(string(b), "\""), "-")
-	if len(ss) != 3 {
-		return fmt.Errorf("invalid date")
-	}
-
-	yyyy, err := strconv.ParseInt(ss[0], 10, 32)
-	if err != nil {
-		return err
-	}
-	mm, err := strconv.ParseInt(ss[1], 10, 32)
-	if err != nil {
-		return err
-	}
-	dd, err := strconv.ParseInt(ss[2], 10, 32)
-	if err != nil {
-		return err
-	}
-	*d = dateOnly(time.Date(int(yyyy), time.Month(mm), int(dd), 0, 0, 0, 0, time.UTC))
-
-	return nil
-}
-
 func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
-	type registerData struct {
-		Name     string   `validate:"required,min=2,max=32" json:"name"`
-		Lastname string   `validate:"required,min=2,max=32" json:"surname"`
-		Email    string   `validate:"required,email" json:"email"`
-		Password string   `validate:"required,min=8" json:"password"`
-		Birthday dateOnly `json:"birthday"`
-	}
 	return func(c echo.Context) error {
 		var u registerData
 		if err := c.Bind(&u); err != nil {
@@ -63,21 +35,10 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			return err
 		}
 
-		validate := validator.New()
-
-		err := validate.StructCtx(context.TODO(), &u)
-		if err != nil {
-			if ve, ok := err.(validator.ValidationErrors); ok {
-				c.JSON(http.StatusBadRequest, echo.Map{
-					"reason": "validation errors",
-					"fields": ve.Error(),
-				})
-				return err
-			}
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "validation error",
-			})
-			return err
+		eroErr := u.Validate()
+		if eroErr != nil {
+			c.JSON(http.StatusBadRequest, eroErr)
+			return eroErr
 		}
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
@@ -149,4 +110,108 @@ func createTokens(usr *models.User) (tokens.Pair, error) {
 		Access:  accessStr,
 		Refresh: refreshStr,
 	}, nil
+}
+
+type dateOnly time.Time
+
+func (d *dateOnly) UnmarshalJSON(b []byte) error {
+	ss := strings.Split(strings.Trim(string(b), "\""), "-")
+	if len(ss) != 3 {
+		return fmt.Errorf("invalid date")
+	}
+
+	yyyy, err := strconv.ParseInt(ss[0], 10, 32)
+	if err != nil {
+		return err
+	}
+	mm, err := strconv.ParseInt(ss[1], 10, 32)
+	if err != nil {
+		return err
+	}
+	dd, err := strconv.ParseInt(ss[2], 10, 32)
+	if err != nil {
+		return err
+	}
+	*d = dateOnly(time.Date(int(yyyy), time.Month(mm), int(dd), 0, 0, 0, 0, time.UTC))
+
+	return nil
+}
+
+type registerData struct {
+	Name     string   `json:"name"`
+	Lastname string   `json:"surname"`
+	Email    string   `json:"email"`
+	Password string   `json:"password"`
+	Birthday dateOnly `json:"birthday"`
+}
+
+func (d *registerData) Validate() ero.Error {
+	nameRegex := regexp.MustCompile(`^[\p{L}]+(-[\p{L}]+)*$`)
+	emailRegex := regexp.MustCompile(`^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,4}$`)
+
+	type fieldError struct {
+		Field    string   `json:"field"`
+		Messages []string `json:"messages"`
+	}
+
+	formatName := func(name string) string {
+		runes := []rune(strings.ToLower(name))
+		runes[0] = unicode.ToUpper(runes[0])
+		for i := 1; i < len(runes); i++ {
+			if runes[i-1] == '-' {
+				runes[i] = unicode.ToUpper(runes[i])
+			}
+		}
+		return string(runes)
+	}
+
+	errorsMap := make(map[string][]string)
+
+	errorsMap["name"] = make([]string, 0, 2)
+	errorsMap["surname"] = make([]string, 0, 2)
+	errorsMap["email"] = make([]string, 0, 2)
+	errorsMap["password"] = make([]string, 0, 2)
+	errorsMap["birthday"] = make([]string, 0, 2)
+
+	if utf8.RuneCountInString(d.Name) > 32 {
+		errorsMap["name"] = append(errorsMap["name"], "too long, must be less than 32 characters")
+	}
+	if !nameRegex.MatchString(d.Name) {
+		errorsMap["name"] = append(errorsMap["name"], "invalid characters set")
+	}
+	d.Name = formatName(d.Name)
+
+	if utf8.RuneCountInString(d.Lastname) > 32 {
+		errorsMap["surname"] = append(errorsMap["surname"], "too long, must be less than 32 characters")
+	}
+	if !nameRegex.MatchString(d.Lastname) {
+		errorsMap["surname"] = append(errorsMap["surname"], "invalid characters set")
+	}
+	d.Lastname = formatName(d.Lastname)
+
+	if utf8.RuneCountInString(d.Password) < 8 {
+		errorsMap["password"] = append(errorsMap["password"], "too short, must be at least 8 characters")
+	}
+
+	if !emailRegex.MatchString(d.Email) {
+		errorsMap["email"] = append(errorsMap["email"], "invalid email")
+	}
+
+	errors := make([]fieldError, 0, 4)
+	fields := make([]string, 0, 4)
+	for field, msgs := range errorsMap {
+		if len(msgs) > 0 {
+			errors = append(errors, fieldError{
+				Field:    field,
+				Messages: msgs,
+			})
+			fields = append(fields, field)
+		}
+	}
+
+	if len(errors) > 0 {
+		return ero.NewValidation(erolog.NewContextBuilder().With("fields", fields).Build(), errors)
+	}
+
+	return nil
 }
