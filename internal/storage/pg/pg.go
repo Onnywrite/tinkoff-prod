@@ -33,19 +33,25 @@ func (pg *PgStorage) Countries(ctx context.Context, regions ...string) ([]models
 		return pg.AllCountries(ctx)
 	}
 
-	countries := make([]models.Country, 0, 256)
-
-	stmt, err := pg.db.PreparexContext(ctx, `
+	query, args, err := sqlx.In(`
 		SELECT id, name, alpha2, alpha3, region
 		FROM countries
-		WHERE region IN($1)
+		WHERE region IN(?)
 		ORDER BY alpha2`,
+		regions,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	err = stmt.SelectContext(ctx, &countries, regions)
+	stmt, err := pg.db.PreparexContext(ctx, pg.db.Rebind(query))
+	if err != nil {
+		return nil, err
+	}
+
+	countries := make([]models.Country, 0, 256)
+
+	err = stmt.SelectContext(ctx, &countries, args...)
 	if err != nil {
 		return nil, storage.ErrInternal
 	}
