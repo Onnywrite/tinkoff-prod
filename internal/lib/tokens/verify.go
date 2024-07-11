@@ -11,6 +11,11 @@ type AccessString string
 
 type RefreshString string
 
+type Pair struct {
+	Access  AccessString  `json:"access"`
+	Refresh RefreshString `json:"refresh"`
+}
+
 var (
 	ErrUnexpectedSigningMethod = errors.New("unexpected signing method")
 	ErrInvalidPayload          = errors.New("invalid payload")
