@@ -50,7 +50,7 @@ func (e *Logger) Enabled(ctx context.Context, level slog.Level) bool {
 			return domainLevel >= level
 		}
 	}
-	return e.levelMap[globalDomain] >= level
+	return e.levelMap[globalDomain] <= level
 }
 
 // Handle handles the Record.
