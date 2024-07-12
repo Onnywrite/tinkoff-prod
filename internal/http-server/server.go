@@ -48,13 +48,17 @@ func (s *Server) Start() error {
 		g.GET("ping", handler.GetPing())
 		g.GET("countries", handler.GetCountries(s.db))
 		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
-		g.GET("me", handler.GetMeProfile(s.db), mymiddleware.Authorized())
 		{
 			authg := g.Group("auth/")
 
 			authg.POST("register", handler.PostRegister(s.db))
 			authg.POST("sign-in", handler.PostSignIn(s.db))
 			authg.POST("refresh", handler.PostRefresh(s.db))
+		}
+		{
+			privateg := g.Group("private/", mymiddleware.Authorized())
+
+			privateg.GET("me", handler.GetMeProfile(s.db), mymiddleware.Authorized())
 		}
 	}
 
