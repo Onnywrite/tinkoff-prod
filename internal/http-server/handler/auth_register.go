@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -22,16 +23,14 @@ import (
 )
 
 type UserRegistrator interface {
-	SaveUser(ctx context.Context, user *models.User) (*models.User, error)
+	SaveUser(ctx context.Context, user *models.User) (*models.User, ero.Error)
 }
 
 func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var u registerData
 		if err := c.Bind(&u); err != nil {
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "could not bind the body",
-			})
+			c.JSONBlob(http.StatusBadRequest, errorMessage("could not bind the body").Blob())
 			return err
 		}
 
@@ -43,6 +42,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 		if err != nil {
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
 			return err
 		}
 
@@ -59,31 +59,28 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			Birthday:     time.Time(u.Birthday),
 		})
 		switch {
-		case err == storage.ErrInternal:
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "internal error",
-			})
+		case errors.Is(err, storage.ErrUniqueConstraint):
+			c.JSONBlob(http.StatusConflict, errorMessage("user already exists").Blob())
+			return err
+		case errors.Is(err, storage.ErrForeignKeyConstraint):
+			c.JSONBlob(http.StatusConflict, errorMessage(fmt.Sprintf("country with id %d does not exist", user.Country.Id)).Blob())
+			return err
 		case err != nil:
-			c.JSON(http.StatusConflict, &crush{
-				Reason: "user already exists",
-			})
-		default:
-			pair, err := tokens.NewPair(user)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, &crush{
-					Reason: "error while generating tokens",
-				})
-				return err
-			}
-
-			c.JSON(http.StatusOK, &tokensResponse{
-				Profile: getProfile(user),
-				Pair:    pair,
-			})
-			return nil
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+			return err
 		}
 
-		return err
+		pair, err := tokens.NewPair(user)
+		if err != nil {
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("error while generating tokens").Blob())
+			return err
+		}
+
+		c.JSON(http.StatusOK, &tokensResponse{
+			Profile: getProfile(user),
+			Pair:    pair,
+		})
+		return nil
 	}
 }
 

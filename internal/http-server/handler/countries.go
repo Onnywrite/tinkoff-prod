@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -10,16 +11,17 @@ import (
 
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 
 	"github.com/labstack/echo/v4"
 )
 
 type CountriesProvider interface {
-	Countries(ctx context.Context, regions ...string) ([]models.Country, error)
+	Countries(ctx context.Context, regions ...string) ([]models.Country, ero.Error)
 }
 
 type CountryProvider interface {
-	Country(ctx context.Context, alpha2 string) (models.Country, error)
+	Country(ctx context.Context, alpha2 string) (models.Country, ero.Error)
 }
 
 func capitalizeFirstLetter(s string) string {
@@ -36,18 +38,12 @@ func GetCountries(provider CountriesProvider) echo.HandlerFunc {
 		}
 
 		cs, err := provider.Countries(context.TODO(), regions...)
-
-		if err == storage.ErrCountriesNotFound {
-			c.JSON(http.StatusNotFound, &crush{
-				Reason: fmt.Sprintf("could not find countries within regions %v", regions),
-			})
+		switch {
+		case errors.Is(err, storage.ErrNoRows):
+			c.JSONBlob(http.StatusNotFound, errorMessage(fmt.Sprintf("could not find countries within regions %v", regions)).Blob())
 			return err
-		}
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "internal error",
-			})
+		case err != nil:
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
 			return err
 		}
 
@@ -61,17 +57,17 @@ func GetCountryAlpha(provider CountryProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		alpha := c.Param("alpha2")
 		if !alphaRegex.MatchString(alpha) {
-			return c.JSON(http.StatusNotFound, &crush{
-				Reason: "code does not seem to be an alpha2",
-			})
+			return c.JSONBlob(http.StatusNotFound, errorMessage("code does not seem to be an alpha2").Blob())
 		}
 		alpha = strings.ToUpper(alpha)
 
 		ctr, err := provider.Country(context.TODO(), alpha)
-		if err != nil {
-			c.JSON(http.StatusNotFound, &crush{
-				Reason: fmt.Sprintf("could not find countries with alpha2 '%s'", alpha),
-			})
+		switch {
+		case errors.Is(err, storage.ErrNoRows):
+			c.JSONBlob(http.StatusNotFound, errorMessage(fmt.Sprintf("could not find countries with alpha2 '%s'", alpha)).Blob())
+			return err
+		case err != nil:
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
 			return err
 		}
 

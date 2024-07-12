@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -13,24 +14,22 @@ func Authorized() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			auth := c.Request().Header["Authorization"]
 			if len(auth) == 0 {
-				return c.JSON(http.StatusUnauthorized, &crush{
-					Reason: "unauthorized user",
-				})
+				return c.JSONBlob(http.StatusForbidden, errorMessage("missing authorization header").Blob())
 			}
 
 			bearerToken := strings.Split(auth[0], " ")
 			if bearerToken[0] != "Bearer" {
-				return c.JSON(http.StatusUnauthorized, &crush{
-					Reason: "invalid authorization header format",
-				})
+				return c.JSONBlob(http.StatusUnauthorized, errorMessage("invalid authorization header format, required 'Bearer <token>''").Blob())
 			}
 			access := tokens.AccessString(bearerToken[1])
 
 			token, err := access.ParseVerify()
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, &crush{
-					Reason: "invalid token",
-				})
+			switch {
+			case errors.Is(err, tokens.ErrExpired):
+				c.JSONBlob(http.StatusUnauthorized, errorMessage("access token has expired").Blob())
+				return err
+			case err != nil:
+				c.JSONBlob(http.StatusUnauthorized, errorMessage("invalid token").Blob())
 				return err
 			}
 			c.Set("email", token.Email)
