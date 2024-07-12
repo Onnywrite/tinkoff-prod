@@ -2,14 +2,12 @@ package ero
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 )
 
 var CurrentService string = "SomeService"
 
 type TheBestError[TCtx LogContext[TCtx]] struct {
-	Service      string
 	ErrorMessage error
 	c            TCtx
 	code         int
@@ -17,7 +15,6 @@ type TheBestError[TCtx LogContext[TCtx]] struct {
 
 func New[TCtx LogContext[TCtx]](ctx TCtx, code int, err error) Error {
 	return &TheBestError[TCtx]{
-		Service:      CurrentService,
 		ErrorMessage: err,
 		c:            ctx,
 		code:         code,
@@ -25,11 +22,7 @@ func New[TCtx LogContext[TCtx]](ctx TCtx, code int, err error) Error {
 }
 
 func (e *TheBestError[T]) Error() string {
-	b, text := json.Marshal(e)
-	if text != nil {
-		panic(text)
-	}
-	return string(b)
+	return `{"Service":"` + CurrentService + `","ErrorMessage":"` + e.ErrorMessage.Error() + `"}`
 }
 
 func (e *TheBestError[T]) Is(anotherErr error) bool {
@@ -54,7 +47,6 @@ func (e *TheBestError[T]) Wrap(ctx context.Context) Error {
 
 func (e *TheBestError[T]) WrapCode(ctx context.Context, code int) Error {
 	return &TheBestError[T]{
-		Service:      e.Service,
 		ErrorMessage: e.ErrorMessage,
 		c:            e.c.ExtractOrThis(ctx),
 		code:         code,
