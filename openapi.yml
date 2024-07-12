@@ -947,14 +947,14 @@ components:
       type: object
       description: Используется для возвращения ошибки пользователю
       properties:
-        reason:
+        ErrorMessage:
           type: string
           description: Описание ошибки в свободной форме
           minLength: 5
       required:
-        - reason
+        - ErrorMessage
       example:
-        reason: <объяснение, почему запрос пользователя не может быть обработан>
+         <объяснение, почему запрос пользователя не может быть обработан>
   parameters:
     paginationLimit:
       in: query
