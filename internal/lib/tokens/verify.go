@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"bytes"
 	"errors"
 	"time"
 
@@ -96,4 +97,9 @@ func (a *RefreshString) ParseVerifySecret(secret []byte) (*Refresh, error) {
 	}
 
 	return nil, ErrUnknown
+}
+
+func (r *RefreshString) UnmarshalJSON(b []byte) error {
+	*r = RefreshString(string(bytes.Trim(b, "\" ")))
+	return nil
 }
