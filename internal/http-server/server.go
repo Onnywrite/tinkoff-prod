@@ -22,6 +22,7 @@ type Storage interface {
 	handler.CountryProvider
 	handler.UserRegistrator
 	handler.UserProvider
+	handler.UserByIdProvider
 }
 
 func NewServer(address string, db Storage, logger *slog.Logger) *Server {
@@ -47,9 +48,14 @@ func (s *Server) Start() error {
 		g.GET("ping", handler.GetPing())
 		g.GET("countries", handler.GetCountries(s.db))
 		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
-		g.POST("auth/register", handler.PostRegister(s.db))
-		g.POST("auth/sign-in", handler.PostSignIn(s.db))
 		g.GET("me", handler.GetMeProfile(s.db), mymiddleware.Authorized())
+		{
+			authg := g.Group("auth/")
+
+			authg.POST("register", handler.PostRegister(s.db))
+			authg.POST("sign-in", handler.PostSignIn(s.db))
+			authg.POST("refresh", handler.PostRefresh(s.db))
+		}
 	}
 
 	s.logger.Info("server has been started", "address", s.address)

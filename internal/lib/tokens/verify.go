@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"bytes"
 	"errors"
 	"time"
 
@@ -10,11 +11,6 @@ import (
 type AccessString string
 
 type RefreshString string
-
-type Pair struct {
-	Access  AccessString  `json:"access"`
-	Refresh RefreshString `json:"refresh"`
-}
 
 var (
 	ErrUnexpectedSigningMethod = errors.New("unexpected signing method")
@@ -101,4 +97,9 @@ func (a *RefreshString) ParseVerifySecret(secret []byte) (*Refresh, error) {
 	}
 
 	return nil, ErrUnknown
+}
+
+func (r *RefreshString) UnmarshalJSON(b []byte) error {
+	*r = RefreshString(string(bytes.Trim(b, "\" ")))
+	return nil
 }

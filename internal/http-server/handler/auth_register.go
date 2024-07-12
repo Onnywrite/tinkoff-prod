@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -15,23 +16,21 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
-	"github.com/Onnywrite/tinkoff-prod/pkg/ero/erolog"
+	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRegistrator interface {
-	SaveUser(ctx context.Context, user *models.User) (*models.User, error)
+	SaveUser(ctx context.Context, user *models.User) (*models.User, ero.Error)
 }
 
 func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var u registerData
 		if err := c.Bind(&u); err != nil {
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "could not bind the body",
-			})
+			c.JSONBlob(http.StatusBadRequest, errorMessage("could not bind the body").Blob())
 			return err
 		}
 
@@ -43,6 +42,7 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 		if err != nil {
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
 			return err
 		}
 
@@ -59,57 +59,29 @@ func PostRegister(registrator UserRegistrator) echo.HandlerFunc {
 			Birthday:     time.Time(u.Birthday),
 		})
 		switch {
-		case err == storage.ErrInternal:
-			c.JSON(http.StatusInternalServerError, &crush{
-				Reason: "internal error",
-			})
+		case errors.Is(err, storage.ErrUniqueConstraint):
+			c.JSONBlob(http.StatusConflict, errorMessage("user already exists").Blob())
+			return err
+		case errors.Is(err, storage.ErrForeignKeyConstraint):
+			c.JSONBlob(http.StatusConflict, errorMessage(fmt.Sprintf("country with id %d does not exist", user.Country.Id)).Blob())
+			return err
 		case err != nil:
-			c.JSON(http.StatusConflict, &crush{
-				Reason: "user already exists",
-			})
-		default:
-			pair, err := createTokens(user)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, &crush{
-					Reason: "error while generating tokens",
-				})
-				return err
-			}
-
-			c.JSON(http.StatusOK, &tokensResponse{
-				Profile: getProfile(user),
-				Pair:    pair,
-			})
-			return nil
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+			return err
 		}
 
-		return err
-	}
-}
+		pair, err := tokens.NewPair(user)
+		if err != nil {
+			c.JSONBlob(http.StatusInternalServerError, errorMessage("error while generating tokens").Blob())
+			return err
+		}
 
-func createTokens(usr *models.User) (tokens.Pair, error) {
-	access := tokens.Access{
-		Id:    usr.Id,
-		Email: usr.Email,
+		c.JSON(http.StatusOK, &tokensResponse{
+			Profile: getProfile(user),
+			Pair:    pair,
+		})
+		return nil
 	}
-	refresh := tokens.Refresh{
-		Id: usr.Id,
-	}
-
-	accessStr, err := access.Sign()
-	if err != nil {
-		return tokens.Pair{}, err
-	}
-
-	refreshStr, err := refresh.Sign()
-	if err != nil {
-		return tokens.Pair{}, err
-	}
-
-	return tokens.Pair{
-		Access:  accessStr,
-		Refresh: refreshStr,
-	}, nil
 }
 
 type dateOnly time.Time

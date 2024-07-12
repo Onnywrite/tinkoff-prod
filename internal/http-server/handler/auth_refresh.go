@@ -10,39 +10,42 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/labstack/echo/v4"
-	"golang.org/x/crypto/bcrypt"
 )
 
-type UserProvider interface {
-	UserByEmail(ctx context.Context, email string) (*models.User, ero.Error)
+type UserByIdProvider interface {
+	UserById(ctx context.Context, id uint64) (*models.User, ero.Error)
 }
 
-func PostSignIn(provider UserProvider) echo.HandlerFunc {
-	type loginData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+func PostRefresh(provider UserByIdProvider) echo.HandlerFunc {
+	type refreshToken struct {
+		Refresh tokens.RefreshString `json:"refresh"`
 	}
 
 	return func(c echo.Context) error {
-		var data loginData
-		if err := c.Bind(&data); err != nil {
+		var token refreshToken
+		if err := c.Bind(&token); err != nil {
 			c.JSONBlob(http.StatusBadRequest, errorMessage("could not bind the body").Blob())
 			return err
 		}
 
-		user, eroErr := provider.UserByEmail(context.TODO(), data.Email)
+		refresh, err := token.Refresh.ParseVerify()
+		switch {
+		case errors.Is(err, tokens.ErrExpired):
+			c.JSONBlob(http.StatusUnauthorized, errorMessage("refresh token has expired").Blob())
+			return err
+		case err != nil:
+			c.JSONBlob(http.StatusUnauthorized, errorMessage("could not parse refresh token").Blob())
+			return err
+		}
+
+		user, eroErr := provider.UserById(context.TODO(), refresh.Id)
 		switch {
 		case errors.Is(eroErr, storage.ErrNoRows):
-			c.JSONBlob(http.StatusUnauthorized, errorMessage("invalid email or password").Blob())
+			c.JSONBlob(http.StatusNotFound, errorMessage("user not found").Blob())
 			return eroErr
 		case eroErr != nil:
 			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
 			return eroErr
-		}
-
-		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(data.Password)); err != nil {
-			c.JSONBlob(http.StatusUnauthorized, errorMessage("invalid email or password").Blob())
-			return err
 		}
 
 		pair, err := tokens.NewPair(user)
