@@ -12,9 +12,25 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 )
+
+// copied from https://github.com/jackc/pgerrcode/blob/master/errcode.go
+const (
+	notNullViolation    = "23502"
+	foreignKeyViolation = "23503"
+	uniqueViolation     = "23505"
+	checkViolation      = "23514"
+)
+
+var pgerrToErr = map[string]error{
+	notNullViolation:    storage.ErrNotNullConstraint,
+	foreignKeyViolation: storage.ErrForeignKeyConstraint,
+	uniqueViolation:     storage.ErrUniqueConstraint,
+	checkViolation:      storage.ErrCheckConstraint,
+}
 
 type PgStorage struct {
 	db *sqlx.DB
@@ -31,7 +47,7 @@ func New(connString string) (*PgStorage, error) {
 	}, nil
 }
 
-func (pg *PgStorage) Countries(ctx context.Context, regions ...string) ([]models.Country, error) {
+func (pg *PgStorage) Countries(ctx context.Context, regions ...string) ([]models.Country, ero.Error) {
 	logCtx := erolog.NewContextBuilder().With("op", "pg.PgStorage.Countries").With("regions", regions)
 
 	if len(regions) == 0 {
@@ -68,7 +84,7 @@ func (pg *PgStorage) Countries(ctx context.Context, regions ...string) ([]models
 	return countries, nil
 }
 
-func (pg *PgStorage) AllCountries(ctx context.Context) ([]models.Country, error) {
+func (pg *PgStorage) AllCountries(ctx context.Context) ([]models.Country, ero.Error) {
 	logCtx := erolog.NewContextBuilder().With("op", "pg.PgStorage.AllCountries")
 
 	countries := make([]models.Country, 0, 256)
@@ -88,7 +104,7 @@ func (pg *PgStorage) AllCountries(ctx context.Context) ([]models.Country, error)
 	return countries, nil
 }
 
-func (pg *PgStorage) Country(ctx context.Context, alpha2 string) (models.Country, error) {
+func (pg *PgStorage) Country(ctx context.Context, alpha2 string) (models.Country, ero.Error) {
 	logCtx := erolog.NewContextBuilder().With("op", "pg.PgStorage.Country").With("alpha2", alpha2)
 
 	stmt, err := pg.db.PreparexContext(ctx, `
@@ -102,14 +118,17 @@ func (pg *PgStorage) Country(ctx context.Context, alpha2 string) (models.Country
 
 	var c models.Country
 	err = stmt.GetContext(ctx, &c, alpha2)
-	if err != nil {
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return models.Country{}, ero.New(logCtx.With("error", err).Build(), ero.CodeNotFound, storage.ErrNoRows)
+	case err != nil:
 		return models.Country{}, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}
 
 	return c, nil
 }
 
-func (pg *PgStorage) SaveUser(ctx context.Context, user *models.User) (*models.User, error) {
+func (pg *PgStorage) SaveUser(ctx context.Context, user *models.User) (*models.User, ero.Error) {
 	logCtx := erolog.NewContextBuilder().With("op", "pg.PgStorage.SaveUser").With("user_email", user.Email)
 
 	type returning struct {
@@ -147,11 +166,21 @@ func (pg *PgStorage) SaveUser(ctx context.Context, user *models.User) (*models.U
 	err = stmt.GetContext(ctx, &saved,
 		user.Name, user.Lastname, user.Email, user.Country.Id,
 		user.IsPublic, user.Image, user.PasswordHash, user.Birthday)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeNotFound, storage.ErrNoRows)
-	case err != nil:
-		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
+
+	// TODO: refactor ASAP
+	if err != nil {
+		pgErr := &pgconn.PgError{}
+		var strerr string
+		if errors.As(err, &pgErr) {
+			strerr = pgErr.Code
+		} else {
+			strerr = err.Error()
+		}
+		doneErr, ok := pgerrToErr[strerr]
+		if !ok {
+			doneErr = storage.ErrInternal
+		}
+		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, doneErr)
 	}
 
 	return &models.User{
@@ -173,11 +202,11 @@ func (pg *PgStorage) SaveUser(ctx context.Context, user *models.User) (*models.U
 	}, nil
 }
 
-func (pg *PgStorage) UserByEmail(ctx context.Context, email string) (*models.User, error) {
+func (pg *PgStorage) UserByEmail(ctx context.Context, email string) (*models.User, ero.Error) {
 	return pg.userBy(ctx, "users.email = $1", email)
 }
 
-func (pg *PgStorage) UserById(ctx context.Context, id uint64) (*models.User, error) {
+func (pg *PgStorage) UserById(ctx context.Context, id uint64) (*models.User, ero.Error) {
 	return pg.userBy(ctx, "users.id = $1", id)
 }
 
@@ -204,9 +233,9 @@ func (pg *PgStorage) userBy(ctx context.Context, where string, args ...any) (*mo
 		SELECT users.id, users.name, users.lastname, users.email, users.is_public, users.image, users.password, users.birthday,
 			   countries.id AS c_id, countries.name AS c_name, countries.alpha2, countries.alpha3, countries.region
 		FROM users
-		WHERE %s
 		JOIN countries
-		ON countries.id = country_fk`, where),
+		ON countries.id = country_fk
+		WHERE %s`, where),
 	)
 	if err != nil {
 		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
@@ -214,7 +243,10 @@ func (pg *PgStorage) userBy(ctx context.Context, where string, args ...any) (*mo
 
 	var u returning
 	err = stmt.GetContext(ctx, &u, args...)
-	if err != nil {
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeNotFound, storage.ErrNoRows)
+	case err != nil:
 		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}
 
