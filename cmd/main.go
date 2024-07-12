@@ -11,10 +11,16 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage/pg"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
+	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := slog.New(
+		erolog.New(
+			os.Stdout,
+			erolog.MustNewConfig("text", true,
+				erolog.MustNewLoggerDomainOption("all", "debug"),
+			)))
 
 	tokens.AccessSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
 	tokens.RefreshSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
