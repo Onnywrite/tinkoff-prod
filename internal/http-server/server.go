@@ -58,7 +58,8 @@ func (s *Server) Start() error {
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("me", handler.GetMeProfile(s.db), mymiddleware.Authorized())
+			privateg.GET("me", handler.GetMe(s.db))
+			privateg.GET("profiles/:id", handler.GetProfile(s.db))
 		}
 	}
 
