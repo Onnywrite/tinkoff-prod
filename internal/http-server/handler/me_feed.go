@@ -21,8 +21,8 @@ type PostSaver interface {
 
 func PostMeFeed(poster PostSaver) echo.HandlerFunc {
 	type post struct {
-		Content    *string   `json:"content"`
-		ImagesUrls *[]string `json:"images_urls"`
+		Content    *string  `json:"content"`
+		ImagesUrls []string `json:"images_urls"`
 	}
 
 	spaceRegex := regexp.MustCompile(`^\s*$`)
@@ -45,9 +45,9 @@ func PostMeFeed(poster PostSaver) echo.HandlerFunc {
 		}
 
 		if p.ImagesUrls != nil {
-			for i := range *p.ImagesUrls {
-				(*p.ImagesUrls)[i] = strings.Trim((*p.ImagesUrls)[i], " ")
-				if !urlRegex.MatchString((*p.ImagesUrls)[i]) {
+			for i := range p.ImagesUrls {
+				p.ImagesUrls[i] = strings.Trim(p.ImagesUrls[i], " ")
+				if !urlRegex.MatchString(p.ImagesUrls[i]) {
 					faults = append(faults, fieldFault{
 						Field:   "images_urls",
 						Message: "not all URLs are valid",
@@ -55,7 +55,7 @@ func PostMeFeed(poster PostSaver) echo.HandlerFunc {
 					break
 				}
 			}
-			if len(*p.ImagesUrls) == 0 {
+			if len(p.ImagesUrls) == 0 {
 				p.ImagesUrls = nil
 			}
 		}
@@ -87,7 +87,7 @@ func PostMeFeed(poster PostSaver) echo.HandlerFunc {
 				Id: c.Get("id").(uint64),
 			},
 			Content:    *p.Content,
-			ImagesUrls: p.ImagesUrls,
+			ImagesUrls: models.StringSlice(p.ImagesUrls),
 		})
 		switch {
 		case errors.Is(eroErr, storage.ErrForeignKeyConstraint):

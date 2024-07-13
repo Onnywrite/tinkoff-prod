@@ -24,6 +24,8 @@ type Storage interface {
 	handler.UserProvider
 	handler.UserByIdProvider
 	handler.PostSaver
+	handler.PostsProvider
+	handler.PostsCountProvider
 }
 
 func NewServer(address string, db Storage, logger *slog.Logger) *Server {
@@ -59,6 +61,7 @@ func (s *Server) Start() error {
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
+			privateg.GET("feed", handler.GetFeed(s.db, s.db))
 			privateg.GET("me", handler.GetMe(s.db))
 			privateg.POST("me/feed", handler.PostMeFeed(s.db))
 			privateg.GET("profiles/:id", handler.GetProfile(s.db))
