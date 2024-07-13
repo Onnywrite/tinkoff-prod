@@ -24,7 +24,7 @@ func main() {
 
 	tokens.AccessSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
 	tokens.RefreshSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
-	tokens.AccessTTL = time.Minute
+	tokens.AccessTTL = time.Minute * 5
 	tokens.RefreshTTL = 240 * time.Hour
 	ero.CurrentService = "tinkoff-prod"
 

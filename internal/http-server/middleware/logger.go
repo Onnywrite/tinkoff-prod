@@ -42,7 +42,6 @@ func Logger(logger *slog.Logger) echo.MiddlewareFunc {
 				slog.String("status", http.StatusText(c.Response().Status)),
 				slog.Int("elapsed_ms", end),
 				slog.String("content_type", c.Response().Header()["Content-Type"][0]),
-				// slog.String("error", err.Error()),
 			)
 
 			return nil

@@ -35,9 +35,6 @@ func (b *ContextBuilder) WithParent(parent context.Context) *ContextBuilder {
 }
 
 func (b *ContextBuilder) With(key string, value interface{}) *ContextBuilder {
-	// if err, ok := value.(error); ok {
-	// 	value = err.Error()
-	// }
 	b.ctx.attrs[key] = value
 	return b
 }
