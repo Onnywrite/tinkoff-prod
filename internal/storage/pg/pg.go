@@ -270,6 +270,40 @@ func (pg *PgStorage) userBy(ctx context.Context, where string, args ...any) (*mo
 
 }
 
+func (pg *PgStorage) SavePost(ctx context.Context, post *models.Post) (uint64, ero.Error) {
+	logCtx := erolog.NewContextBuilder().WithParent(ctx).With("op", "pg.PgStorage.userBy").With("post_author_id", post.Author.Id)
+
+	stmt, err := pg.db.PreparexContext(ctx, `
+		INSERT INTO posts (author_fk, content, images_urls)
+		VALUES ($1, $2, $3)
+		RETURNING id`,
+	)
+	if err != nil {
+		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
+	}
+
+	var id uint64
+	err = stmt.GetContext(ctx, &id, post.Author.Id, post.Content, post.ImagesUrls)
+
+	// TODO: refactor ASAP
+	if err != nil {
+		pgErr := &pgconn.PgError{}
+		var strerr string
+		if errors.As(err, &pgErr) {
+			strerr = pgErr.Code
+		} else {
+			strerr = err.Error()
+		}
+		doneErr, ok := pgerrToErr[strerr]
+		if !ok {
+			doneErr = storage.ErrInternal
+		}
+		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, doneErr)
+	}
+
+	return id, nil
+}
+
 func (pg *PgStorage) Disconnect() error {
 	return pg.db.Close()
 }
