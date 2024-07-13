@@ -363,13 +363,13 @@ func (pg *PgStorage) EstimatePostsNum(ctx context.Context) (uint64, ero.Error) {
 	if err != nil {
 		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}
-	var estimate uint64
+	var estimate float64
 	err = stmt.GetContext(ctx, &estimate)
 	if err != nil {
 		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}
 
-	return estimate, nil
+	return uint64(estimate), nil
 }
 
 func (pg *PgStorage) Disconnect() error {
