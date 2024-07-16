@@ -41,7 +41,7 @@ func PostMeFeed(poster PostSaver) echo.HandlerFunc {
 				Message: "cannot be empty",
 			})
 		} else {
-			*p.Content = strings.Trim(*p.Content, " \t\n")
+			*p.Content = strings.TrimSpace(*p.Content)
 		}
 
 		if p.ImagesUrls != nil {
