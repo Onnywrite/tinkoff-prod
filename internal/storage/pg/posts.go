@@ -51,7 +51,7 @@ func (pg *PgStorage) Posts(ctx context.Context, offset, count int) (<-chan model
 	return pg.postsBy(ctx, offset, count, "users.is_public = true")
 }
 
-func (pg *PgStorage) PostsByUserId(ctx context.Context, offset, count int, userId uint64) (<-chan models.Post, <-chan ero.Error) {
+func (pg *PgStorage) UsersPosts(ctx context.Context, offset, count int, userId uint64) (<-chan models.Post, <-chan ero.Error) {
 	return pg.postsBy(ctx, offset, count, "posts.author_fk = $3", userId)
 }
 
@@ -117,15 +117,23 @@ func (pg *PgStorage) postsBy(ctx context.Context, offset, count int, where strin
 	return posts, errChan
 }
 
-func (pg *PgStorage) PostsNum(ctx context.Context) (uint64, ero.Error) {
-	logCtx := erolog.NewContextBuilder().WithParent(ctx).With("op", "pg.PgStorage.EstimatePostsNum")
+func (pg *PgStorage) UsersPostsNum(ctx context.Context, userId uint64) (uint64, ero.Error) {
+	return pg.postsNum(ctx, "WHERE posts.author_fk = $1", userId)
+}
 
-	stmt, err := pg.db.PreparexContext(ctx, `SELECT COUNT(*) FROM posts`)
+func (pg *PgStorage) PostsNum(ctx context.Context) (uint64, ero.Error) {
+	return pg.postsNum(ctx, "JOIN users ON author_fk = users.id WHERE users.is_public = true")
+}
+
+func (pg *PgStorage) postsNum(ctx context.Context, sql string, args ...any) (uint64, ero.Error) {
+	logCtx := erolog.NewContextBuilder().WithParent(ctx).With("op", "pg.PgStorage.postsNum")
+
+	stmt, err := pg.db.PreparexContext(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM posts %s`, sql))
 	if err != nil {
 		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}
 	var estimate float64
-	err = stmt.GetContext(ctx, &estimate)
+	err = stmt.GetContext(ctx, &estimate, args...)
 	if err != nil {
 		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}

@@ -7,49 +7,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Onnywrite/tinkoff-prod/internal/models"
-	"github.com/Onnywrite/tinkoff-prod/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/labstack/echo/v4"
 )
 
-type PostsProvider interface {
-	Posts(ctx context.Context, offset, count int) (<-chan models.Post, <-chan ero.Error)
+type AllFeedProvider interface {
+	AllFeed(ctx context.Context, page, pageSize uint64, formatDate func(time.Time) string) (*feed.PagedFeed, ero.Error)
 }
 
-type PostsCountProvider interface {
-	PostsNum(context.Context) (uint64, ero.Error)
-}
-
-func GetFeed(provider PostsProvider, countProvider PostsCountProvider) echo.HandlerFunc {
-	type author struct {
-		Id       uint64 `json:"id"`
-		Name     string `json:"name"`
-		Lastname string `json:"surname"`
-	}
-	type post struct {
-		Id          uint64  `json:"id"`
-		Author      author  `json:"author"`
-		Content     string  `json:"content"`
-		ImageUrl    *string `json:"image_url"`
-		PublishedAt string  `json:"published_at"`
-		UpdatedAt   *string `json:"updated_at"`
-	}
-	type response struct {
-		First   uint64 `json:"first"`
-		Current uint64 `json:"current"`
-		Last    uint64 `json:"last"`
-		Posts   []post `json:"posts"`
-	}
-
-	formatTime := func(t time.Time, fullTimestamp bool) string {
-		if fullTimestamp {
-			return t.Format(time.DateTime)
-		} else {
-			return t.Format(time.DateOnly)
-		}
-	}
-
+func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		page, err := strconv.ParseUint(c.QueryParam("page"), 10, 32)
 		if err != nil || page < 1 {
@@ -64,63 +31,22 @@ func GetFeed(provider PostsProvider, countProvider PostsCountProvider) echo.Hand
 			fullTimestamp = false
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		postsCh, errCh := provider.Posts(ctx, int(page-1)*int(pageSize), int(pageSize))
-
-		postsCount, eroErr := countProvider.PostsNum(ctx)
-		if eroErr != nil {
-			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+		posts, eroErr := provider.AllFeed(context.Background(), page, pageSize, func(t time.Time) string {
+			if fullTimestamp {
+				return t.Format(time.DateTime)
+			} else {
+				return t.Format(time.DateOnly)
+			}
+		})
+		switch {
+		case errors.Is(eroErr, feed.ErrNoPosts):
+			c.JSONBlob(http.StatusNoContent, []byte(eroErr.Error()))
+			return eroErr
+		case eroErr != nil:
+			c.JSONBlob(http.StatusInternalServerError, []byte(eroErr.Error()))
 			return eroErr
 		}
 
-		newPosts := make([]post, 0, pageSize)
-		for p := range postsCh {
-			var url *string
-			if p.ImagesUrls == nil || len(p.ImagesUrls) == 0 {
-				url = nil
-			} else {
-				url = &p.ImagesUrls[0]
-			}
-
-			var updatedAt *string
-			if p.UpdatedAt != nil {
-				formatted := formatTime(*p.UpdatedAt, fullTimestamp)
-				updatedAt = &formatted
-			} else {
-				updatedAt = nil
-			}
-
-			newPosts = append(newPosts, post{
-				Id:          p.Id,
-				Content:     p.Content,
-				ImageUrl:    url,
-				PublishedAt: formatTime(p.PublishedAt, fullTimestamp),
-				UpdatedAt:   updatedAt,
-				Author: author{
-					Id:       p.Author.Id,
-					Name:     p.Author.Name,
-					Lastname: p.Author.Lastname,
-				},
-			})
-		}
-
-		if eroErr = <-errCh; eroErr != nil {
-			switch {
-			case errors.Is(eroErr, storage.ErrNoRows):
-				c.JSONBlob(http.StatusNoContent, errorMessage("no content").Blob())
-				return eroErr
-			default:
-				c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
-				return eroErr
-			}
-		}
-
-		return c.JSON(http.StatusOK, response{
-			First:   1,
-			Current: uint64(page),
-			Last:    (postsCount + pageSize - 1) / pageSize,
-			Posts:   newPosts,
-		})
+		return c.JSON(http.StatusOK, posts)
 	}
 }
