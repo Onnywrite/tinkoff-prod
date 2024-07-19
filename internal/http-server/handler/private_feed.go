@@ -63,12 +63,6 @@ func GetFeed(provider PostsProvider, countProvider PostsCountProvider) echo.Hand
 		if err != nil {
 			fullTimestamp = false
 		}
-		// oneUrl, err := strconv.ParseBool(c.QueryParam("one_url"))
-		// if err != nil {
-		// 	oneUrl = true
-		// }
-
-		_ = fullTimestamp
 
 		posts, eroErr := provider.Posts(context.TODO(), int(page-1)*int(pageSize), int(pageSize))
 		switch {
