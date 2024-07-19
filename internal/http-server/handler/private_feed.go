@@ -14,7 +14,7 @@ import (
 )
 
 type PostsProvider interface {
-	Posts(ctx context.Context, offset, count int) ([]models.Post, ero.Error)
+	Posts(ctx context.Context, offset, count int) (<-chan models.Post, <-chan ero.Error)
 }
 
 type PostsCountProvider interface {
@@ -64,25 +64,18 @@ func GetFeed(provider PostsProvider, countProvider PostsCountProvider) echo.Hand
 			fullTimestamp = false
 		}
 
-		posts, eroErr := provider.Posts(context.TODO(), int(page-1)*int(pageSize), int(pageSize))
-		switch {
-		case errors.Is(eroErr, storage.ErrNoRows):
-			c.JSONBlob(http.StatusNoContent, errorMessage("no content").Blob())
-			return eroErr
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		postsCh, errCh := provider.Posts(ctx, int(page-1)*int(pageSize), int(pageSize))
 
-		case eroErr != nil:
-			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
-			return eroErr
-		}
-
-		postsCount, eroErr := countProvider.PostsNum(context.TODO())
+		postsCount, eroErr := countProvider.PostsNum(ctx)
 		if eroErr != nil {
 			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
 			return eroErr
 		}
 
-		newPosts := make([]post, len(posts))
-		for i, p := range posts {
+		newPosts := make([]post, 0, pageSize)
+		for p := range postsCh {
 			var url *string
 			if p.ImagesUrls == nil || len(p.ImagesUrls) == 0 {
 				url = nil
@@ -98,7 +91,7 @@ func GetFeed(provider PostsProvider, countProvider PostsCountProvider) echo.Hand
 				updatedAt = nil
 			}
 
-			newPosts[i] = post{
+			newPosts = append(newPosts, post{
 				Id:          p.Id,
 				Content:     p.Content,
 				ImageUrl:    url,
@@ -109,13 +102,24 @@ func GetFeed(provider PostsProvider, countProvider PostsCountProvider) echo.Hand
 					Name:     p.Author.Name,
 					Lastname: p.Author.Lastname,
 				},
+			})
+		}
+
+		if eroErr = <-errCh; eroErr != nil {
+			switch {
+			case errors.Is(eroErr, storage.ErrNoRows):
+				c.JSONBlob(http.StatusNoContent, errorMessage("no content").Blob())
+				return eroErr
+			default:
+				c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+				return eroErr
 			}
 		}
 
 		return c.JSON(http.StatusOK, response{
 			First:   1,
 			Current: uint64(page),
-			Last:    (postsCount + pageSize + 1) / pageSize,
+			Last:    (postsCount + pageSize - 1) / pageSize,
 			Posts:   newPosts,
 		})
 	}
