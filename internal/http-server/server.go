@@ -15,6 +15,8 @@ type Server struct {
 	address string
 	logger  *slog.Logger
 	db      Storage
+
+	feedService FeedService
 }
 
 type Storage interface {
@@ -23,16 +25,20 @@ type Storage interface {
 	handler.UserRegistrator
 	handler.UserProvider
 	handler.UserByIdProvider
-	handler.PostSaver
-	handler.PostsProvider
-	handler.PostsCountProvider
 }
 
-func NewServer(address string, db Storage, logger *slog.Logger) *Server {
+type FeedService interface {
+	handler.PostCreator
+	handler.AllFeedProvider
+	handler.AuthorFeedProvider
+}
+
+func NewServer(address string, db Storage, feedService FeedService, logger *slog.Logger) *Server {
 	return &Server{
-		address: address,
-		logger:  logger,
-		db:      db,
+		address:     address,
+		logger:      logger,
+		db:          db,
+		feedService: feedService,
 	}
 }
 
@@ -61,10 +67,11 @@ func (s *Server) Start() error {
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("feed", handler.GetFeed(s.db, s.db))
+			privateg.GET("feed", handler.GetFeed(s.feedService))
 			privateg.GET("me", handler.GetMe(s.db))
-			privateg.POST("me/feed", handler.PostMeFeed(s.db))
+			privateg.POST("me/feed", handler.PostMeFeed(s.feedService))
 			privateg.GET("profiles/:id", handler.GetProfile(s.db))
+			privateg.GET("profiles/:id/feed", handler.GetProfileFeed(s.feedService))
 		}
 	}
 

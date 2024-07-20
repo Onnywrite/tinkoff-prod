@@ -4,70 +4,22 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
-	"github.com/Onnywrite/tinkoff-prod/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
-	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 	"github.com/labstack/echo/v4"
 )
 
-type PostSaver interface {
-	SavePost(ctx context.Context, post *models.Post) (uint64, ero.Error)
+type PostCreator interface {
+	CreatePost(ctx context.Context, post feed.Post) (uint64, ero.Error)
 }
 
-func PostMeFeed(poster PostSaver) echo.HandlerFunc {
+func PostMeFeed(creator PostCreator) echo.HandlerFunc {
 	type post struct {
 		Content    *string  `json:"content"`
 		ImagesUrls []string `json:"images_urls"`
-	}
-
-	spaceRegex := regexp.MustCompile(`^\s*$`)
-	urlRegex := regexp.MustCompile(`^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b\/([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$`)
-	validatePost := func(p *post) ero.Error {
-		type fieldFault struct {
-			Field   string
-			Message string
-		}
-
-		faults := make([]fieldFault, 0, 2)
-
-		if p.Content == nil || spaceRegex.MatchString(*p.Content) {
-			faults = append(faults, fieldFault{
-				Field:   "content",
-				Message: "cannot be empty",
-			})
-		} else {
-			*p.Content = strings.Trim(*p.Content, " \t\n")
-		}
-
-		if p.ImagesUrls != nil {
-			for i := range p.ImagesUrls {
-				p.ImagesUrls[i] = strings.Trim(p.ImagesUrls[i], " ")
-				if !urlRegex.MatchString(p.ImagesUrls[i]) {
-					faults = append(faults, fieldFault{
-						Field:   "images_urls",
-						Message: "not all URLs are valid",
-					})
-					break
-				}
-			}
-			if len(p.ImagesUrls) == 0 {
-				p.ImagesUrls = nil
-			}
-		}
-
-		if len(faults) > 0 {
-			fields := make([]string, len(faults))
-			for i := range faults {
-				fields[i] = faults[i].Field
-			}
-			return ero.NewValidation(erolog.NewContextBuilder().With("fields", fields).Build(), faults)
-		}
-		return nil
 	}
 
 	return func(c echo.Context) error {
@@ -77,21 +29,14 @@ func PostMeFeed(poster PostSaver) echo.HandlerFunc {
 			return err
 		}
 
-		if eroErr := validatePost(&p); eroErr != nil {
-			c.JSON(http.StatusBadRequest, eroErr)
-			return eroErr
-		}
-
-		postId, eroErr := poster.SavePost(context.TODO(), &models.Post{
-			Author: models.User{
-				Id: c.Get("id").(uint64),
-			},
-			Content:    *p.Content,
+		postId, eroErr := creator.CreatePost(context.TODO(), feed.Post{
+			AuthorId:   c.Get("id").(uint64),
+			Content:    p.Content,
 			ImagesUrls: models.StringSlice(p.ImagesUrls),
 		})
 		switch {
-		case errors.Is(eroErr, storage.ErrForeignKeyConstraint):
-			c.JSONBlob(http.StatusNotFound, errorMessage("user (author) not found").Blob())
+		case errors.Is(eroErr, feed.ErrAuthorNotFound):
+			c.JSONBlob(http.StatusNotFound, []byte(eroErr.Error()))
 			return eroErr
 		case eroErr != nil:
 			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
