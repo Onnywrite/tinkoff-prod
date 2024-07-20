@@ -18,20 +18,12 @@ type AllFeedProvider interface {
 
 func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		page, err := strconv.ParseUint(c.QueryParam("page"), 10, 32)
-		if err != nil || page < 1 {
-			page = 1
-		}
-		pageSize, err := strconv.ParseUint(c.QueryParam("page_size"), 10, 32)
-		if err != nil || pageSize < 1 {
-			pageSize = 100
-		}
 		fullTimestamp, err := strconv.ParseBool(c.QueryParam("full_timestamp"))
 		if err != nil {
 			fullTimestamp = false
 		}
 
-		posts, eroErr := provider.AllFeed(context.Background(), page, pageSize, func(t time.Time) string {
+		posts, eroErr := provider.AllFeed(context.Background(), c.Get("page").(uint64), c.Get("page_size").(uint64), func(t time.Time) string {
 			if fullTimestamp {
 				return t.Format(time.DateTime)
 			} else {
