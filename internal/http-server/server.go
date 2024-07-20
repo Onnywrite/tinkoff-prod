@@ -16,29 +16,33 @@ type Server struct {
 	logger  *slog.Logger
 	db      Storage
 
-	feedService FeedService
+	feedService      FeedService
+	countriesService CountriesService
 }
 
 type Storage interface {
-	handler.CountriesProvider
-	handler.CountryProvider
 	handler.UserRegistrator
 	handler.UserProvider
 	handler.UserByIdProvider
 }
 
+type CountriesService interface {
+	handler.CountriesProvider
+	handler.CountryProvider
+}
 type FeedService interface {
 	handler.PostCreator
 	handler.AllFeedProvider
 	handler.AuthorFeedProvider
 }
 
-func NewServer(address string, db Storage, feedService FeedService, logger *slog.Logger) *Server {
+func NewServer(address string, db Storage, feedService FeedService, countriesService CountriesService, logger *slog.Logger) *Server {
 	return &Server{
-		address:     address,
-		logger:      logger,
-		db:          db,
-		feedService: feedService,
+		address:          address,
+		logger:           logger,
+		db:               db,
+		feedService:      feedService,
+		countriesService: countriesService,
 	}
 }
 
@@ -55,8 +59,8 @@ func (s *Server) Start() error {
 		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover())
 
 		g.GET("ping", handler.GetPing())
-		g.GET("countries", handler.GetCountries(s.db))
-		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
+		g.GET("countries", handler.GetCountries(s.countriesService))
+		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.countriesService))
 		{
 			authg := g.Group("auth/")
 
