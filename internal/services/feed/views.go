@@ -12,6 +12,7 @@ type Author struct {
 	Id       uint64 `json:"id"`
 	Name     string `json:"name"`
 	Lastname string `json:"surname"`
+	Image    string `json:"image"`
 }
 type FullPost struct {
 	Id          uint64  `json:"id"`

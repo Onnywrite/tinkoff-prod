@@ -48,6 +48,7 @@ func (s *Service) AllFeed(ctx context.Context, page, pageSize uint64, formatDate
 				Id:       p.Author.Id,
 				Name:     p.Author.Name,
 				Lastname: p.Author.Lastname,
+				Image:    p.Author.Image,
 			},
 		})
 	}
