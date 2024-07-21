@@ -3,11 +3,10 @@ package handler
 import (
 	"time"
 
-	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 )
 
-type profile struct {
+type Profile struct {
 	Id       uint64         `json:"id"`
 	Name     string         `json:"name"`
 	Lastname string         `json:"surname"`
@@ -18,8 +17,8 @@ type profile struct {
 	Birthday string         `json:"birthday"`
 }
 
-func getProfile(user *models.User) profile {
-	return profile{
+func GetProfile(user *models.User) Profile {
+	return Profile{
 		Id:       user.Id,
 		Name:     user.Name,
 		Lastname: user.Lastname,
@@ -29,9 +28,4 @@ func getProfile(user *models.User) profile {
 		Image:    user.Image,
 		Birthday: user.Birthday.Format(time.DateOnly),
 	}
-}
-
-type tokensResponse struct {
-	Profile profile `json:"profile"`
-	tokens.Pair
 }

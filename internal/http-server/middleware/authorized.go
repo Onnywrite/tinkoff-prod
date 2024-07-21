@@ -14,22 +14,22 @@ func Authorized() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			auth := c.Request().Header["Authorization"]
 			if len(auth) == 0 {
-				return c.JSONBlob(http.StatusForbidden, errorMessage("missing authorization header").Blob())
+				return c.JSONBlob(http.StatusForbidden, ErrorMessage("missing authorization header").Blob())
 			}
 
 			bearerToken := strings.Split(auth[0], " ")
 			if bearerToken[0] != "Bearer" {
-				return c.JSONBlob(http.StatusUnauthorized, errorMessage("invalid authorization header format, required 'Bearer <token>''").Blob())
+				return c.JSONBlob(http.StatusUnauthorized, ErrorMessage("invalid authorization header format, required 'Bearer <token>''").Blob())
 			}
 			access := tokens.AccessString(bearerToken[1])
 
 			token, err := access.ParseVerify()
 			switch {
 			case errors.Is(err, tokens.ErrExpired):
-				c.JSONBlob(http.StatusUnauthorized, errorMessage("access token has expired").Blob())
+				c.JSONBlob(http.StatusUnauthorized, ErrorMessage("access token has expired").Blob())
 				return err
 			case err != nil:
-				c.JSONBlob(http.StatusUnauthorized, errorMessage("invalid token").Blob())
+				c.JSONBlob(http.StatusUnauthorized, ErrorMessage("invalid token").Blob())
 				return err
 			}
 			c.Set("email", token.Email)

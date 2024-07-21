@@ -1,4 +1,4 @@
-package handler
+package privatehandler
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Onnywrite/tinkoff-prod/internal/http-server/handler"
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
@@ -25,7 +26,7 @@ func PostMeFeed(creator PostCreator) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var p post
 		if err := c.Bind(&p); err != nil {
-			c.JSONBlob(http.StatusBadRequest, errorMessage("could not bind the body").Blob())
+			c.JSONBlob(http.StatusBadRequest, handler.ErrorMessage("could not bind the body").Blob())
 			return err
 		}
 
@@ -39,7 +40,7 @@ func PostMeFeed(creator PostCreator) echo.HandlerFunc {
 			c.JSONBlob(http.StatusNotFound, []byte(eroErr.Error()))
 			return eroErr
 		case eroErr != nil:
-			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+			c.JSONBlob(http.StatusInternalServerError, handler.ErrorMessage("internal error").Blob())
 			return eroErr
 		}
 
