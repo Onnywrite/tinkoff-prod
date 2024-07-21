@@ -2,7 +2,6 @@ package pg
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (pg *PgStorage) SavePost(ctx context.Context, post *models.Post) (uint64, ero.Error) {
@@ -28,20 +26,8 @@ func (pg *PgStorage) SavePost(ctx context.Context, post *models.Post) (uint64, e
 	var id uint64
 	err = stmt.GetContext(ctx, &id, post.Author.Id, post.Content, post.ImagesUrls)
 
-	// TODO: refactor ASAP
 	if err != nil {
-		pgErr := &pgconn.PgError{}
-		var strerr string
-		if errors.As(err, &pgErr) {
-			strerr = pgErr.Code
-		} else {
-			strerr = err.Error()
-		}
-		doneErr, ok := pgerrToErr[strerr]
-		if !ok {
-			doneErr = storage.ErrInternal
-		}
-		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, doneErr)
+		return 0, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, getError(err))
 	}
 
 	return id, nil
