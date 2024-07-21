@@ -14,7 +14,7 @@ func (s *Service) CreatePost(ctx context.Context, post NewPost) (uint64, ero.Err
 	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.CreatePost")
 
 	if err := post.Validate(); err != nil {
-		s.log.WarnContext(err.Context(ctx), "post hasn't passed validation")
+		s.log.DebugContext(err.Context(ctx), "post hasn't passed validation")
 		return 0, err
 	}
 
@@ -27,7 +27,7 @@ func (s *Service) CreatePost(ctx context.Context, post NewPost) (uint64, ero.Err
 	})
 	switch {
 	case errors.Is(err, storage.ErrForeignKeyConstraint):
-		s.log.WarnContext(err.Context(ctx), "author not found")
+		s.log.DebugContext(err.Context(ctx), "author not found")
 		return 0, ero.New(logCtx.WithParent(err.Context(ctx)).Build(), ero.CodeNotFound, ErrAuthorNotFound)
 	case err != nil:
 		s.log.ErrorContext(err.Context(ctx), "error while saving post")
