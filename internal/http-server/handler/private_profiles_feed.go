@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
@@ -14,36 +13,32 @@ import (
 )
 
 type AuthorFeedProvider interface {
-	AuthorFeed(ctx context.Context, page, pageSize uint64, userId uint64, formatDate func(time.Time) string) (*feed.PagedProfileFeed, ero.Error)
+	AuthorFeed(ctx context.Context, opts feed.AuthorFeedOptions) (*feed.PagedProfileFeed, ero.Error)
 }
 
 func GetProfileFeed(provider AuthorFeedProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		idStr := strings.TrimPrefix(c.Param("id"), "id")
-		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
-			c.JSONBlob(http.StatusNotFound, errorMessage("id is not integer").Blob())
-			return err
-		}
-		page, err := strconv.ParseUint(c.QueryParam("page"), 10, 32)
-		if err != nil || page < 1 {
-			page = 1
-		}
-		pageSize, err := strconv.ParseUint(c.QueryParam("page_size"), 10, 32)
-		if err != nil || pageSize < 1 {
-			pageSize = 100
-		}
 		fullTimestamp, err := strconv.ParseBool(c.QueryParam("full_timestamp"))
 		if err != nil {
 			fullTimestamp = false
 		}
+		likesCount, err := strconv.ParseUint(c.QueryParam("likes_count"), 10, 64)
+		if err != nil {
+			likesCount = 3
+		}
 
-		posts, eroErr := provider.AuthorFeed(context.Background(), page, pageSize, id, func(t time.Time) string {
-			if fullTimestamp {
-				return t.Format(time.DateTime)
-			} else {
-				return t.Format(time.DateOnly)
-			}
+		posts, eroErr := provider.AuthorFeed(context.Background(), feed.AuthorFeedOptions{
+			Page:       c.Get("page").(uint64),
+			PageSize:   c.Get("page_size").(uint64),
+			UserId:     c.Get("user_id").(uint64),
+			LikesCount: likesCount,
+			FormatDate: func(t time.Time) string {
+				if fullTimestamp {
+					return t.Format(time.DateTime)
+				} else {
+					return t.Format(time.DateOnly)
+				}
+			},
 		})
 		switch {
 		case errors.Is(eroErr, feed.ErrNoPosts):

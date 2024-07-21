@@ -8,21 +8,35 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 )
 
-func (s *Service) AuthorFeed(ctx context.Context, page, pageSize uint64, userId uint64, formatDate func(time.Time) string) (*PagedProfileFeed, ero.Error) {
-	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.AllFeed").With("page", page).With("page_size", pageSize)
+type AuthorFeedOptions struct {
+	Page       uint64
+	PageSize   uint64
+	UserId     uint64
+	LikesCount uint64
+	FormatDate func(time.Time) string
+}
+
+func (s *Service) AuthorFeed(ctx context.Context, opts AuthorFeedOptions) (*PagedProfileFeed, ero.Error) {
+	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.AllFeed").With("opts.Page", opts.Page).With("page_size", opts.PageSize).With("user_id", opts.UserId)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	postsCh, errCh := s.aProvider.UsersPosts(ctx, int(page-1)*int(pageSize), int(pageSize), userId)
+	postsCh, errCh := s.d.AuthorProvider.UsersPosts(ctx, int(opts.Page-1)*int(opts.PageSize), int(opts.PageSize), opts.UserId)
 
-	postsCount, eroErr := s.aCountProvider.UsersPostsNum(ctx, userId)
+	postsCount, eroErr := s.d.AuthorCounter.UsersPostsNum(ctx, opts.UserId)
 	if eroErr != nil {
 		s.log.ErrorContext(eroErr.Context(ctx), "internal error")
 		return nil, eroErr
 	}
 
-	posts := make([]AuthorlessPost, 0, pageSize)
+	posts := make([]LikedAuthorlessPost, 0, opts.PageSize)
 	for p := range postsCh {
+		likesInfo, eroErr := s.getLikesForPost(ctx, p.Id, opts.UserId, opts.LikesCount, opts.FormatDate)
+		if eroErr != nil {
+			s.log.ErrorContext(eroErr.Context(ctx), "error while getting likes for post in profile")
+			continue
+		}
+
 		var url *string
 		if p.ImagesUrls == nil || len(p.ImagesUrls) == 0 {
 			url = nil
@@ -32,18 +46,23 @@ func (s *Service) AuthorFeed(ctx context.Context, page, pageSize uint64, userId 
 
 		var updatedAt *string
 		if p.UpdatedAt != nil {
-			formatted := formatDate(*p.UpdatedAt)
+			formatted := opts.FormatDate(*p.UpdatedAt)
 			updatedAt = &formatted
 		} else {
 			updatedAt = nil
 		}
 
-		posts = append(posts, AuthorlessPost{
-			Id:          p.Id,
-			Content:     p.Content,
-			ImageUrl:    url,
-			PublishedAt: formatDate(p.PublishedAt),
-			UpdatedAt:   updatedAt,
+		posts = append(posts, LikedAuthorlessPost{
+			Liked:      likesInfo.isLiked,
+			LikesCount: likesInfo.count,
+			Likes:      likesInfo.likes,
+			AuthorlessPost: AuthorlessPost{
+				Id:          p.Id,
+				Content:     p.Content,
+				ImageUrl:    url,
+				PublishedAt: opts.FormatDate(p.PublishedAt),
+				UpdatedAt:   updatedAt,
+			},
 		})
 	}
 
@@ -58,8 +77,8 @@ func (s *Service) AuthorFeed(ctx context.Context, page, pageSize uint64, userId 
 
 	return &PagedProfileFeed{
 		First:   1,
-		Current: uint64(page),
-		Last:    (postsCount + pageSize - 1) / pageSize,
+		Current: uint64(opts.Page),
+		Last:    (postsCount + opts.PageSize - 1) / opts.PageSize,
 		Posts:   posts,
 	}, nil
 }

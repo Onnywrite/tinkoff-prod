@@ -13,30 +13,32 @@ import (
 )
 
 type AllFeedProvider interface {
-	AllFeed(ctx context.Context, page, pageSize uint64, formatDate func(time.Time) string) (*feed.PagedFeed, ero.Error)
+	AllFeed(ctx context.Context, opts feed.AllFeedOptions) (*feed.PagedFeed, ero.Error)
 }
 
 func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		page, err := strconv.ParseUint(c.QueryParam("page"), 10, 32)
-		if err != nil || page < 1 {
-			page = 1
-		}
-		pageSize, err := strconv.ParseUint(c.QueryParam("page_size"), 10, 32)
-		if err != nil || pageSize < 1 {
-			pageSize = 100
-		}
 		fullTimestamp, err := strconv.ParseBool(c.QueryParam("full_timestamp"))
 		if err != nil {
 			fullTimestamp = false
 		}
+		likesCount, err := strconv.ParseUint(c.QueryParam("likes_count"), 10, 64)
+		if err != nil {
+			likesCount = 3
+		}
 
-		posts, eroErr := provider.AllFeed(context.Background(), page, pageSize, func(t time.Time) string {
-			if fullTimestamp {
-				return t.Format(time.DateTime)
-			} else {
-				return t.Format(time.DateOnly)
-			}
+		posts, eroErr := provider.AllFeed(context.Background(), feed.AllFeedOptions{
+			Page:       c.Get("page").(uint64),
+			PageSize:   c.Get("page_size").(uint64),
+			UserId:     c.Get("id").(uint64),
+			LikesCount: likesCount,
+			FormatDate: func(t time.Time) string {
+				if fullTimestamp {
+					return t.Format(time.DateTime)
+				} else {
+					return t.Format(time.DateOnly)
+				}
+			},
 		})
 		switch {
 		case errors.Is(eroErr, feed.ErrNoPosts):

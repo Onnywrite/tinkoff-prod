@@ -9,7 +9,9 @@ import (
 
 	server "github.com/Onnywrite/tinkoff-prod/internal/http-server"
 	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/countries"
 	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/likes"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage/pg"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
@@ -57,7 +59,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := server.NewServer(serverAddress, db, feed.New(logger, db, db, db, db, db), logger)
+	countriesService := countries.New(logger, db, db)
+
+	likesService := likes.New(logger, likes.Dependencies{
+		Saver:        db,
+		Deleter:      db,
+		Provider:     db,
+		LikesCounter: db,
+		LikeProvider: db,
+	})
+
+	feedService := feed.New(logger, feed.Dependencies{
+		Provider:        db,
+		Counter:         db,
+		Saver:           db,
+		AuthorCounter:   db,
+		AuthorProvider:  db,
+		IsLikedProvider: likesService,
+		LikesProvider:   likesService,
+	})
+
+	s := server.NewServer(serverAddress, logger, db, feedService, countriesService, likesService)
 	if err = s.Start(); err != nil {
 		logger.Error("server has been stopped", "error", err)
 	}

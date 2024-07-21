@@ -16,29 +16,42 @@ type Server struct {
 	logger  *slog.Logger
 	db      Storage
 
-	feedService FeedService
+	feedService      FeedService
+	countriesService CountriesService
+	likesService     LikesService
 }
 
 type Storage interface {
-	handler.CountriesProvider
-	handler.CountryProvider
 	handler.UserRegistrator
 	handler.UserProvider
 	handler.UserByIdProvider
 }
 
+type CountriesService interface {
+	handler.CountriesProvider
+	handler.CountryProvider
+}
 type FeedService interface {
 	handler.PostCreator
 	handler.AllFeedProvider
 	handler.AuthorFeedProvider
 }
 
-func NewServer(address string, db Storage, feedService FeedService, logger *slog.Logger) *Server {
+type LikesService interface {
+	handler.Liker
+	handler.Unliker
+	handler.LikesProvider
+}
+
+func NewServer(address string, logger *slog.Logger, db Storage,
+	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
 	return &Server{
-		address:     address,
-		logger:      logger,
-		db:          db,
-		feedService: feedService,
+		address:          address,
+		logger:           logger,
+		db:               db,
+		feedService:      feedService,
+		countriesService: countriesService,
+		likesService:     likesService,
 	}
 }
 
@@ -55,8 +68,8 @@ func (s *Server) Start() error {
 		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover())
 
 		g.GET("ping", handler.GetPing())
-		g.GET("countries", handler.GetCountries(s.db))
-		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
+		g.GET("countries", handler.GetCountries(s.countriesService))
+		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.countriesService))
 		{
 			authg := g.Group("auth/")
 
@@ -67,11 +80,22 @@ func (s *Server) Start() error {
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("feed", handler.GetFeed(s.feedService))
 			privateg.GET("me", handler.GetMe(s.db))
 			privateg.POST("me/feed", handler.PostMeFeed(s.feedService))
-			privateg.GET("profiles/:id", handler.GetProfile(s.db))
-			privateg.GET("profiles/:id/feed", handler.GetProfileFeed(s.feedService))
+			privateg.GET("feed", handler.GetFeed(s.feedService), mymiddleware.Pagination(100))
+			{
+				feedg := privateg.Group("posts/", mymiddleware.IdParam("post_id"))
+
+				feedg.GET(":post_id/likes", handler.GetLikes(s.likesService), mymiddleware.Pagination(100))
+				feedg.POST(":post_id/like", handler.PostLike(s.likesService))
+				feedg.DELETE(":post_id/like", handler.DeleteLike(s.likesService))
+			}
+			{
+				profilesg := privateg.Group("profiles/", mymiddleware.IdParam("user_id"))
+
+				profilesg.GET(":user_id", handler.GetProfile(s.db))
+				profilesg.GET(":user_id/feed", handler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
+			}
 		}
 	}
 

@@ -5,17 +5,14 @@ import (
 	"log/slog"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/likes"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 )
 
 type Service struct {
 	log *slog.Logger
 
-	provider       PostsProvider
-	countProvider  PostsCountProvider
-	saver          PostSaver
-	aCountProvider AuthorPostsCountProvider
-	aProvider      AuthorPostsProvider
+	d Dependencies
 }
 
 type PostsProvider interface {
@@ -34,18 +31,31 @@ type AuthorPostsCountProvider interface {
 	UsersPostsNum(ctx context.Context, userId uint64) (uint64, ero.Error)
 }
 
+type IsLikedProvider interface {
+	IsLiked(ctx context.Context, userId, postId uint64) bool
+}
+
 type AuthorPostsProvider interface {
 	UsersPosts(ctx context.Context, offset, count int, userId uint64) (<-chan models.Post, <-chan ero.Error)
 }
 
-func New(logger *slog.Logger, provider PostsProvider, countProvider PostsCountProvider,
-	saver PostSaver, authorProvider AuthorPostsProvider, authorCountProvider AuthorPostsCountProvider) *Service {
+type LikesProvider interface {
+	Likes(ctx context.Context, opts likes.LikesOptions) (*likes.PagedLikes, ero.Error)
+}
+
+type Dependencies struct {
+	Provider        PostsProvider
+	Counter         PostsCountProvider
+	Saver           PostSaver
+	AuthorCounter   AuthorPostsCountProvider
+	AuthorProvider  AuthorPostsProvider
+	IsLikedProvider IsLikedProvider
+	LikesProvider   LikesProvider
+}
+
+func New(logger *slog.Logger, deps Dependencies) *Service {
 	return &Service{
-		log:            logger,
-		provider:       provider,
-		countProvider:  countProvider,
-		saver:          saver,
-		aCountProvider: authorCountProvider,
-		aProvider:      authorProvider,
+		log: logger,
+		d:   deps,
 	}
 }

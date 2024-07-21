@@ -10,7 +10,7 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 )
 
-func (s *Service) CreatePost(ctx context.Context, post Post) (uint64, ero.Error) {
+func (s *Service) CreatePost(ctx context.Context, post NewPost) (uint64, ero.Error) {
 	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.CreatePost")
 
 	if err := post.Validate(); err != nil {
@@ -18,7 +18,7 @@ func (s *Service) CreatePost(ctx context.Context, post Post) (uint64, ero.Error)
 		return 0, err
 	}
 
-	id, err := s.saver.SavePost(ctx, &models.Post{
+	id, err := s.d.Saver.SavePost(ctx, &models.Post{
 		Author: models.User{
 			Id: post.AuthorId,
 		},
