@@ -23,10 +23,10 @@ func (s *Service) Like(ctx context.Context, userId, postId uint64) ero.Error {
 	})
 	switch {
 	case errors.Is(err, storage.ErrForeignKeyConstraint):
-		s.log.WarnContext(logCtx.BuildContext(), "user or post does not exist")
+		s.log.DebugContext(logCtx.BuildContext(), "user or post does not exist")
 		return ero.New(logCtx.WithParent(err.Context(ctx)).Build(), ero.CodeNotFound, ErrNotFound)
 	case errors.Is(err, storage.ErrUniqueConstraint):
-		s.log.WarnContext(logCtx.BuildContext(), "already liked")
+		s.log.DebugContext(logCtx.BuildContext(), "already liked")
 		return ero.New(logCtx.WithParent(err.Context(ctx)).Build(), ero.CodeExists, ErrAlreadyLiked)
 	case err != nil:
 		s.log.ErrorContext(err.Context(ctx), "error while saving like")
@@ -49,7 +49,7 @@ func (s *Service) Unlike(ctx context.Context, userId, postId uint64) ero.Error {
 	})
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
-		s.log.WarnContext(logCtx.BuildContext(), "post has not been liked")
+		s.log.DebugContext(logCtx.BuildContext(), "post has not been liked")
 		return ero.New(logCtx.WithParent(err.Context(ctx)).Build(), ero.CodeNotFound, ErrAlreadyUnliked)
 	case err != nil:
 		s.log.ErrorContext(err.Context(ctx), "error while saving like")

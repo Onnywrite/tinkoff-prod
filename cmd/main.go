@@ -22,7 +22,7 @@ func main() {
 		erolog.New(
 			os.Stdout,
 			erolog.MustNewConfig("text", true,
-				erolog.MustNewLoggerDomainOption("all", "debug"),
+				erolog.MustNewLoggerDomainOption("all", "info"),
 			)))
 
 	tokens.AccessSecret = []byte("$my_%SUPER(n0t-so=MUch)_secret123")
