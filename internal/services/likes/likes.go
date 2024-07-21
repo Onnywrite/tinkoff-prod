@@ -11,10 +11,7 @@ import (
 type Service struct {
 	log *slog.Logger
 
-	saver              LikeSaver
-	deleter            LikeDeleter
-	likesProvider      LikesProvider
-	likesCountProvider LikesCountProvider
+	d Dependencies
 }
 
 type LikeSaver interface {
@@ -33,13 +30,21 @@ type LikesCountProvider interface {
 	LikesNum(ctx context.Context, postId uint64) (uint64, ero.Error)
 }
 
-func New(log *slog.Logger, likeSaver LikeSaver, likeDeleter LikeDeleter,
-	likesProvider LikesProvider, likesCountProvider LikesCountProvider) *Service {
+type LikeProvider interface {
+	Like(ctx context.Context, userId, postId uint64) (models.Like, ero.Error)
+}
+
+type Dependencies struct {
+	Saver        LikeSaver
+	Deleter      LikeDeleter
+	Provider     LikesProvider
+	LikesCounter LikesCountProvider
+	LikeProvider LikeProvider
+}
+
+func New(log *slog.Logger, deps Dependencies) *Service {
 	return &Service{
-		log:                log,
-		saver:              likeSaver,
-		deleter:            likeDeleter,
-		likesProvider:      likesProvider,
-		likesCountProvider: likesCountProvider,
+		log: log,
+		d:   deps,
 	}
 }

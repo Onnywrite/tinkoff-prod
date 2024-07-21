@@ -128,3 +128,25 @@ func (pg *PgStorage) LikesNum(ctx context.Context, postId uint64) (uint64, ero.E
 
 	return count, nil
 }
+
+func (pg *PgStorage) Like(ctx context.Context, userId, postId uint64) (models.Like, ero.Error) {
+	logCtx := erolog.NewContextBuilder().With("op", "pg.PgStorage.LikesNum").With("post_id", postId)
+
+	var like models.Like
+	row := pg.db.QueryRowxContext(ctx, `
+		SELECT liked_at, user_fk, post_fk
+		FROM likes
+		WHERE user_fk = $1 AND post_fk = $2`,
+		userId, postId,
+	)
+	if err := row.Err(); err != nil {
+		return models.Like{}, ero.New(logCtx.With("error", err).Build(), ero.CodeUnknownServer, getError(err))
+	}
+
+	err := row.Scan(&like.LikedAt, &like.User.Id, &like.Post.Id)
+	if err != nil {
+		return models.Like{}, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, getError(err))
+	}
+
+	return like, nil
+}

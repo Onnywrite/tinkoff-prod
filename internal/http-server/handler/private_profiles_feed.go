@@ -13,7 +13,7 @@ import (
 )
 
 type AuthorFeedProvider interface {
-	AuthorFeed(ctx context.Context, page, pageSize uint64, userId uint64, formatDate func(time.Time) string) (*feed.PagedProfileFeed, ero.Error)
+	AuthorFeed(ctx context.Context, opts feed.AuthorFeedOptions) (*feed.PagedProfileFeed, ero.Error)
 }
 
 func GetProfileFeed(provider AuthorFeedProvider) echo.HandlerFunc {
@@ -22,16 +22,24 @@ func GetProfileFeed(provider AuthorFeedProvider) echo.HandlerFunc {
 		if err != nil {
 			fullTimestamp = false
 		}
+		likesCount, err := strconv.ParseUint(c.QueryParam("likes_count"), 10, 64)
+		if err != nil {
+			likesCount = 3
+		}
 
-		posts, eroErr := provider.AuthorFeed(context.Background(), c.Get("page").(uint64), c.Get("page_size").(uint64), c.Get("user_id").(uint64),
-			func(t time.Time) string {
+		posts, eroErr := provider.AuthorFeed(context.Background(), feed.AuthorFeedOptions{
+			Page:       c.Get("page").(uint64),
+			PageSize:   c.Get("page_size").(uint64),
+			UserId:     c.Get("user_id").(uint64),
+			LikesCount: likesCount,
+			FormatDate: func(t time.Time) string {
 				if fullTimestamp {
 					return t.Format(time.DateTime)
 				} else {
 					return t.Format(time.DateOnly)
 				}
 			},
-		)
+		})
 		switch {
 		case errors.Is(eroErr, feed.ErrNoPosts):
 			c.JSONBlob(http.StatusNoContent, []byte(eroErr.Error()))

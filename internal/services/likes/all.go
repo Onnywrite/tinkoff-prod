@@ -8,20 +8,27 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 )
 
-func (s *Service) Likes(ctx context.Context, page, pageSize, postId uint64, formatDate func(time.Time) string) (*PagedLikes, ero.Error) {
-	logCtx := erolog.NewContextBuilder().With("op", "likes.Service.GetLiked").With("post_id", postId).With("page", page).With("page_size", pageSize)
+type LikesOptions struct {
+	Page       uint64
+	PageSize   uint64
+	PostId     uint64
+	FormatDate func(time.Time) string
+}
+
+func (s *Service) Likes(ctx context.Context, opts LikesOptions) (*PagedLikes, ero.Error) {
+	logCtx := erolog.NewContextBuilder().With("op", "likes.Service.GetLiked").With("post_id", opts.PostId).With("page", opts.Page).With("page_size", opts.PageSize)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	likesCh, eroCh := s.likesProvider.Likes(ctx, int((page-1)*pageSize), int(pageSize), postId)
+	likesCh, eroCh := s.d.Provider.Likes(ctx, int((opts.Page-1)*opts.PageSize), int(opts.PageSize), opts.PostId)
 
-	likesCount, eroErr := s.likesCountProvider.LikesNum(ctx, postId)
+	likesCount, eroErr := s.d.LikesCounter.LikesNum(ctx, opts.PostId)
 	if eroErr != nil {
 		s.log.ErrorContext(eroErr.Context(ctx), "error while getting likes count")
 		return nil, ero.New(logCtx.With("error", eroErr).Build(), ero.CodeInternal, ErrInternal)
 	}
 
-	likes := make([]Like, 0, pageSize)
+	likes := make([]Like, 0, opts.PageSize)
 	for like := range likesCh {
 		likes = append(likes, Like{
 			User: User{
@@ -30,7 +37,7 @@ func (s *Service) Likes(ctx context.Context, page, pageSize, postId uint64, form
 				Lastname: like.User.Lastname,
 				Image:    like.User.Image,
 			},
-			LikedAt: formatDate(like.LikedAt),
+			LikedAt: opts.FormatDate(like.LikedAt),
 		})
 	}
 
@@ -46,8 +53,8 @@ func (s *Service) Likes(ctx context.Context, page, pageSize, postId uint64, form
 
 	return &PagedLikes{
 		First:   1,
-		Current: page,
-		Last:    (likesCount + pageSize - 1) / pageSize,
+		Current: opts.Page,
+		Last:    (likesCount + opts.PageSize - 1) / opts.PageSize,
 		Count:   likesCount,
 		Likes:   likes,
 	}, nil

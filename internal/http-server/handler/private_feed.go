@@ -13,7 +13,7 @@ import (
 )
 
 type AllFeedProvider interface {
-	AllFeed(ctx context.Context, page, pageSize uint64, formatDate func(time.Time) string) (*feed.PagedFeed, ero.Error)
+	AllFeed(ctx context.Context, opts feed.AllFeedOptions) (*feed.PagedFeed, ero.Error)
 }
 
 func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
@@ -22,13 +22,23 @@ func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
 		if err != nil {
 			fullTimestamp = false
 		}
+		likesCount, err := strconv.ParseUint(c.QueryParam("likes_count"), 10, 64)
+		if err != nil {
+			likesCount = 3
+		}
 
-		posts, eroErr := provider.AllFeed(context.Background(), c.Get("page").(uint64), c.Get("page_size").(uint64), func(t time.Time) string {
-			if fullTimestamp {
-				return t.Format(time.DateTime)
-			} else {
-				return t.Format(time.DateOnly)
-			}
+		posts, eroErr := provider.AllFeed(context.Background(), feed.AllFeedOptions{
+			Page:       c.Get("page").(uint64),
+			PageSize:   c.Get("page_size").(uint64),
+			UserId:     c.Get("id").(uint64),
+			LikesCount: likesCount,
+			FormatDate: func(t time.Time) string {
+				if fullTimestamp {
+					return t.Format(time.DateTime)
+				} else {
+					return t.Format(time.DateOnly)
+				}
+			},
 		})
 		switch {
 		case errors.Is(eroErr, feed.ErrNoPosts):

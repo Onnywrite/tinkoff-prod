@@ -21,7 +21,7 @@ type Unliker interface {
 }
 
 type LikesProvider interface {
-	Likes(ctx context.Context, page, pageSize, postId uint64, formatDate func(time.Time) string) (*likes.PagedLikes, ero.Error)
+	Likes(ctx context.Context, opts likes.LikesOptions) (*likes.PagedLikes, ero.Error)
 }
 
 func PostLike(liker Liker) echo.HandlerFunc {
@@ -61,14 +61,18 @@ func GetLikes(provider LikesProvider) echo.HandlerFunc {
 			fullTimestamp = false
 		}
 
-		likesPage, eroErr := provider.Likes(context.TODO(), c.Get("page").(uint64), c.Get("page_size").(uint64), c.Get("post_id").(uint64),
-			func(t time.Time) string {
+		likesPage, eroErr := provider.Likes(context.TODO(), likes.LikesOptions{
+			Page:     c.Get("page").(uint64),
+			PageSize: c.Get("page_size").(uint64),
+			PostId:   c.Get("post_id").(uint64),
+			FormatDate: func(t time.Time) string {
 				if fullTimestamp {
 					return t.Format(time.DateTime)
 				} else {
 					return t.Format(time.DateOnly)
 				}
 			},
+		},
 		)
 		switch {
 		case errors.Is(eroErr, likes.ErrNoLikes):

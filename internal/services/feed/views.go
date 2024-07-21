@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Onnywrite/tinkoff-prod/internal/services/likes"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 )
@@ -14,6 +15,8 @@ type Author struct {
 	Lastname string `json:"surname"`
 	Image    string `json:"image"`
 }
+
+// TODO: getting all feed with and without likes if it makes sence
 type Post struct {
 	Id          uint64  `json:"id"`
 	Author      Author  `json:"author"`
@@ -22,6 +25,15 @@ type Post struct {
 	PublishedAt string  `json:"published_at"`
 	UpdatedAt   *string `json:"updated_at"`
 }
+
+type LikedPost struct {
+	Post
+	Liked      bool         `json:"is_liked"`
+	LikesCount uint64       `json:"likes_count"`
+	Likes      []likes.Like `json:"likes"`
+}
+
+// TODO: getting profile feed with and without likes if it makes sence
 type AuthorlessPost struct {
 	Id          uint64  `json:"id"`
 	Content     string  `json:"content"`
@@ -29,6 +41,14 @@ type AuthorlessPost struct {
 	PublishedAt string  `json:"published_at"`
 	UpdatedAt   *string `json:"updated_at"`
 }
+
+type LikedAuthorlessPost struct {
+	AuthorlessPost
+	Liked      bool         `json:"is_liked"`
+	LikesCount uint64       `json:"likes_count"`
+	Likes      []likes.Like `json:"likes"`
+}
+
 type Page[T any] struct {
 	First   uint64 `json:"first"`
 	Current uint64 `json:"current"`
@@ -36,8 +56,8 @@ type Page[T any] struct {
 	Posts   []T    `json:"posts"`
 }
 
-type PagedFeed Page[Post]
-type PagedProfileFeed Page[AuthorlessPost]
+type PagedFeed Page[LikedPost]
+type PagedProfileFeed Page[LikedAuthorlessPost]
 
 type NewPost struct {
 	AuthorId   uint64   `json:"author_id"`

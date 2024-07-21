@@ -13,7 +13,7 @@ import (
 func (s *Service) Like(ctx context.Context, userId, postId uint64) ero.Error {
 	logCtx := erolog.NewContextBuilder().With("op", "likes.Service.Like").With("user_id", userId).With("post_id", postId)
 
-	err := s.saver.SaveLike(ctx, models.Like{
+	err := s.d.Saver.SaveLike(ctx, models.Like{
 		User: models.User{
 			Id: userId,
 		},
@@ -39,7 +39,7 @@ func (s *Service) Like(ctx context.Context, userId, postId uint64) ero.Error {
 func (s *Service) Unlike(ctx context.Context, userId, postId uint64) ero.Error {
 	logCtx := erolog.NewContextBuilder().With("op", "likes.Service.Like").With("user_id", userId).With("post_id", postId)
 
-	err := s.deleter.DeleteLike(ctx, models.Like{
+	err := s.d.Deleter.DeleteLike(ctx, models.Like{
 		User: models.User{
 			Id: userId,
 		},

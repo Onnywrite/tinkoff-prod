@@ -18,7 +18,7 @@ func (s *Service) CreatePost(ctx context.Context, post NewPost) (uint64, ero.Err
 		return 0, err
 	}
 
-	id, err := s.saver.SavePost(ctx, &models.Post{
+	id, err := s.d.Saver.SavePost(ctx, &models.Post{
 		Author: models.User{
 			Id: post.AuthorId,
 		},

@@ -59,11 +59,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := server.NewServer(serverAddress, logger, db,
-		feed.New(logger, db, db, db, db, db),
-		countries.New(logger, db, db),
-		likes.New(logger, db, db, db, db),
-	)
+	countriesService := countries.New(logger, db, db)
+
+	likesService := likes.New(logger, likes.Dependencies{
+		Saver:        db,
+		Deleter:      db,
+		Provider:     db,
+		LikesCounter: db,
+		LikeProvider: db,
+	})
+
+	feedService := feed.New(logger, feed.Dependencies{
+		Provider:        db,
+		Counter:         db,
+		Saver:           db,
+		AuthorCounter:   db,
+		AuthorProvider:  db,
+		IsLikedProvider: likesService,
+		LikesProvider:   likesService,
+	})
+
+	s := server.NewServer(serverAddress, logger, db, feedService, countriesService, likesService)
 	if err = s.Start(); err != nil {
 		logger.Error("server has been stopped", "error", err)
 	}
