@@ -31,13 +31,16 @@ func (pg *PgStorage) SaveUser(ctx context.Context, user *models.User) (*models.U
 	}
 
 	row := stmt.QueryRowxContext(ctx, user.Name, user.Lastname, user.Email, user.Country.Id, user.IsPublic, user.Image, user.PasswordHash, user.Birthday)
-	if row.Err() != nil {
-		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
+	if err := row.Err(); err != nil {
+		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeUnknownServer, getError(err))
 	}
 
 	var saved models.User
-	row.Scan(&saved.Id, &saved.Name, &saved.Lastname, &saved.Email, &saved.IsPublic, &saved.Image, &saved.PasswordHash, &saved.Birthday,
+	err = row.Scan(&saved.Id, &saved.Name, &saved.Lastname, &saved.Email, &saved.IsPublic, &saved.Image, &saved.PasswordHash, &saved.Birthday,
 		&saved.Country.Id, &saved.Country.Name, &saved.Country.Alpha2, &saved.Country.Alpha3, &saved.Country.Region)
+	if err != nil {
+		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
+	}
 
 	return &saved, nil
 }
