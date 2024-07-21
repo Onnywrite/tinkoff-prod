@@ -30,7 +30,8 @@ func GetProfileFeed(provider AuthorFeedProvider) echo.HandlerFunc {
 		posts, eroErr := provider.AuthorFeed(context.Background(), feed.AuthorFeedOptions{
 			Page:       c.Get("page").(uint64),
 			PageSize:   c.Get("page_size").(uint64),
-			UserId:     c.Get("user_id").(uint64),
+			AuthorId:   c.Get("user_id").(uint64),
+			UserId:     c.Get("id").(uint64),
 			LikesCount: likesCount,
 			FormatDate: func(t time.Time) string {
 				if fullTimestamp {

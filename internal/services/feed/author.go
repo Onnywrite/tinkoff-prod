@@ -11,19 +11,24 @@ import (
 type AuthorFeedOptions struct {
 	Page       uint64
 	PageSize   uint64
+	AuthorId   uint64
 	UserId     uint64
 	LikesCount uint64
 	FormatDate func(time.Time) string
 }
 
 func (s *Service) AuthorFeed(ctx context.Context, opts AuthorFeedOptions) (*PagedProfileFeed, ero.Error) {
-	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.AllFeed").With("opts.Page", opts.Page).With("page_size", opts.PageSize).With("user_id", opts.UserId)
+	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.AllFeed").
+		With("opts.Page", opts.Page).
+		With("page_size", opts.PageSize).
+		With("author_id", opts.AuthorId).
+		With("user_id", opts.UserId)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	postsCh, errCh := s.d.AuthorProvider.UsersPosts(ctx, int(opts.Page-1)*int(opts.PageSize), int(opts.PageSize), opts.UserId)
+	postsCh, errCh := s.d.AuthorProvider.UsersPosts(ctx, int(opts.Page-1)*int(opts.PageSize), int(opts.PageSize), opts.AuthorId)
 
-	postsCount, eroErr := s.d.AuthorCounter.UsersPostsNum(ctx, opts.UserId)
+	postsCount, eroErr := s.d.AuthorCounter.UsersPostsNum(ctx, opts.AuthorId)
 	if eroErr != nil {
 		s.log.ErrorContext(eroErr.Context(ctx), "internal error")
 		return nil, eroErr
