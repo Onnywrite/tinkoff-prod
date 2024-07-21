@@ -18,6 +18,7 @@ type Server struct {
 
 	feedService      FeedService
 	countriesService CountriesService
+	likesService     LikesService
 }
 
 type Storage interface {
@@ -36,13 +37,21 @@ type FeedService interface {
 	handler.AuthorFeedProvider
 }
 
-func NewServer(address string, db Storage, feedService FeedService, countriesService CountriesService, logger *slog.Logger) *Server {
+type LikesService interface {
+	handler.Liker
+	handler.Unliker
+	handler.LikesProvider
+}
+
+func NewServer(address string, logger *slog.Logger, db Storage,
+	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
 	return &Server{
 		address:          address,
 		logger:           logger,
 		db:               db,
 		feedService:      feedService,
 		countriesService: countriesService,
+		likesService:     likesService,
 	}
 }
 
@@ -74,6 +83,13 @@ func (s *Server) Start() error {
 			privateg.GET("me", handler.GetMe(s.db))
 			privateg.POST("me/feed", handler.PostMeFeed(s.feedService))
 			privateg.GET("feed", handler.GetFeed(s.feedService), mymiddleware.Pagination(100))
+			{
+				feedg := privateg.Group("posts/", mymiddleware.IdParam("post_id"))
+
+				feedg.GET(":post_id/likes", handler.GetLikes(s.likesService), mymiddleware.Pagination(100))
+				feedg.POST(":post_id/like", handler.PostLike(s.likesService))
+				feedg.DELETE(":post_id/like", handler.DeleteLike(s.likesService))
+			}
 			{
 				profilesg := privateg.Group("profiles/", mymiddleware.IdParam("user_id"))
 
