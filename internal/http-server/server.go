@@ -71,11 +71,15 @@ func (s *Server) Start() error {
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("feed", handler.GetFeed(s.feedService), mymiddleware.Pagination(100))
 			privateg.GET("me", handler.GetMe(s.db))
 			privateg.POST("me/feed", handler.PostMeFeed(s.feedService))
-			privateg.GET("profiles/:id", handler.GetProfile(s.db))
-			privateg.GET("profiles/:id/feed", handler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
+			privateg.GET("feed", handler.GetFeed(s.feedService), mymiddleware.Pagination(100))
+			{
+				profilesg := privateg.Group("profiles/", mymiddleware.IdParam("user_id"))
+
+				profilesg.GET(":user_id", handler.GetProfile(s.db))
+				profilesg.GET(":user_id/feed", handler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
+			}
 		}
 	}
 

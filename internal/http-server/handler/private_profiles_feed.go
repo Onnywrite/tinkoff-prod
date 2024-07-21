@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
@@ -19,24 +18,20 @@ type AuthorFeedProvider interface {
 
 func GetProfileFeed(provider AuthorFeedProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		idStr := strings.TrimPrefix(c.Param("id"), "id")
-		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
-			c.JSONBlob(http.StatusNotFound, errorMessage("id is not integer").Blob())
-			return err
-		}
 		fullTimestamp, err := strconv.ParseBool(c.QueryParam("full_timestamp"))
 		if err != nil {
 			fullTimestamp = false
 		}
 
-		posts, eroErr := provider.AuthorFeed(context.Background(), c.Get("page").(uint64), c.Get("page_size").(uint64), id, func(t time.Time) string {
-			if fullTimestamp {
-				return t.Format(time.DateTime)
-			} else {
-				return t.Format(time.DateOnly)
-			}
-		})
+		posts, eroErr := provider.AuthorFeed(context.Background(), c.Get("page").(uint64), c.Get("page_size").(uint64), c.Get("user_id").(uint64),
+			func(t time.Time) string {
+				if fullTimestamp {
+					return t.Format(time.DateTime)
+				} else {
+					return t.Format(time.DateOnly)
+				}
+			},
+		)
 		switch {
 		case errors.Is(eroErr, feed.ErrNoPosts):
 			c.JSONBlob(http.StatusNoContent, []byte(eroErr.Error()))
