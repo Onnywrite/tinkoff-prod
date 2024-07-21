@@ -14,7 +14,7 @@ type Author struct {
 	Lastname string `json:"surname"`
 	Image    string `json:"image"`
 }
-type FullPost struct {
+type Post struct {
 	Id          uint64  `json:"id"`
 	Author      Author  `json:"author"`
 	Content     string  `json:"content"`
@@ -36,16 +36,16 @@ type Page[T any] struct {
 	Posts   []T    `json:"posts"`
 }
 
-type PagedFeed Page[FullPost]
+type PagedFeed Page[Post]
 type PagedProfileFeed Page[AuthorlessPost]
 
-type Post struct {
+type NewPost struct {
 	AuthorId   uint64   `json:"author_id"`
 	Content    *string  `json:"content"`
 	ImagesUrls []string `json:"images_urls"`
 }
 
-func (p Post) Validate() ero.Error {
+func (p NewPost) Validate() ero.Error {
 	type fieldFault struct {
 		Field   string
 		Message string

@@ -21,7 +21,7 @@ func (s *Service) AllFeed(ctx context.Context, page, pageSize uint64, formatDate
 		return nil, eroErr
 	}
 
-	posts := make([]FullPost, 0, pageSize)
+	posts := make([]Post, 0, pageSize)
 	for p := range postsCh {
 		var url *string
 		if p.ImagesUrls == nil || len(p.ImagesUrls) == 0 {
@@ -38,7 +38,7 @@ func (s *Service) AllFeed(ctx context.Context, page, pageSize uint64, formatDate
 			updatedAt = nil
 		}
 
-		posts = append(posts, FullPost{
+		posts = append(posts, Post{
 			Id:          p.Id,
 			Content:     p.Content,
 			ImageUrl:    url,

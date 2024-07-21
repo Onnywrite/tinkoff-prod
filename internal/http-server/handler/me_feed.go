@@ -13,7 +13,7 @@ import (
 )
 
 type PostCreator interface {
-	CreatePost(ctx context.Context, post feed.Post) (uint64, ero.Error)
+	CreatePost(ctx context.Context, post feed.NewPost) (uint64, ero.Error)
 }
 
 func PostMeFeed(creator PostCreator) echo.HandlerFunc {
@@ -29,7 +29,7 @@ func PostMeFeed(creator PostCreator) echo.HandlerFunc {
 			return err
 		}
 
-		postId, eroErr := creator.CreatePost(context.TODO(), feed.Post{
+		postId, eroErr := creator.CreatePost(context.TODO(), feed.NewPost{
 			AuthorId:   c.Get("id").(uint64),
 			Content:    p.Content,
 			ImagesUrls: models.StringSlice(p.ImagesUrls),

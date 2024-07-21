@@ -10,7 +10,7 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
 )
 
-func (s *Service) CreatePost(ctx context.Context, post Post) (uint64, ero.Error) {
+func (s *Service) CreatePost(ctx context.Context, post NewPost) (uint64, ero.Error) {
 	logCtx := erolog.NewContextBuilder().With("op", "feed.Service.CreatePost")
 
 	if err := post.Validate(); err != nil {
