@@ -1,5 +1,7 @@
 package ero
 
+import "net/http"
+
 const (
 	CodeBadRequest           = 400
 	CodeUnauthorized         = 401
@@ -38,6 +40,34 @@ func ToGrpcCode(eroCode int) uint32 {
 		return 14
 	case CodeUnauthorized:
 		return 16
+	}
+	return 2
+}
+
+func ToHttpCode(eroCode int) int {
+	switch eroCode {
+	case CodeCancelled:
+		return http.StatusGatewayTimeout
+	case CodeUnknownServer:
+		return http.StatusInternalServerError
+	case CodeUnknownClient:
+		return http.StatusBadRequest
+	case CodeBadRequest:
+		return http.StatusBadRequest
+	case CodeNotFound:
+		return http.StatusNotFound
+	case CodeExists:
+		return http.StatusConflict
+	case CodePermissionDenied:
+		return http.StatusPreconditionFailed
+	case CodeUnimplemented:
+		return http.StatusNotImplemented
+	case CodeInternal:
+		return http.StatusInternalServerError
+	case CodeTemporaryUnavailable:
+		return http.StatusServiceUnavailable
+	case CodeUnauthorized:
+		return http.StatusUnauthorized
 	}
 	return 2
 }

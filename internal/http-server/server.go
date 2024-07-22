@@ -11,31 +11,49 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Storage interface {
-	handler.CountriesProvider
-	handler.CountryProvider
-	handler.UserRegistrator
-	handler.UserProvider
-	handler.UserByIdProvider
-	handler.PostSaver
-	handler.PostsProvider
-	handler.PostsCountProvider
-}
-
 type Server struct {
 	address           string
 	logger            *slog.Logger
 	db                Storage
 	certPath, keyPath string
+
+	feedService      FeedService
+	countriesService CountriesService
+	likesService     LikesService
+}
+type Storage interface {
+	handler.UserRegistrator
+	handler.UserProvider
+	handler.UserByIdProvider
 }
 
-func NewServer(logger *slog.Logger, db Storage, address, certPath, keyPath string) *Server {
+type CountriesService interface {
+	handler.CountriesProvider
+	handler.CountryProvider
+}
+type FeedService interface {
+	handler.PostCreator
+	handler.AllFeedProvider
+	handler.AuthorFeedProvider
+}
+
+type LikesService interface {
+	handler.Liker
+	handler.Unliker
+	handler.LikesProvider
+}
+
+func NewServer(logger *slog.Logger, address, certPath, keyPath string, db Storage,
+	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
 	return &Server{
-		address:  address,
-		logger:   logger,
-		db:       db,
-		certPath: certPath,
-		keyPath:  keyPath,
+		logger:           logger,
+		address:          address,
+		certPath:         certPath,
+		keyPath:          keyPath,
+		db:               db,
+		feedService:      feedService,
+		countriesService: countriesService,
+		likesService:     likesService,
 	}
 }
 
@@ -52,8 +70,8 @@ func (s *Server) Start() error {
 		g := e.Group("api/", mymiddleware.Logger(s.logger), middleware.Recover())
 
 		g.GET("ping", handler.GetPing())
-		g.GET("countries", handler.GetCountries(s.db))
-		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.db))
+		g.GET("countries", handler.GetCountries(s.countriesService))
+		g.GET("countries/:alpha2", handler.GetCountryAlpha(s.countriesService))
 		{
 			authg := g.Group("auth/")
 
@@ -64,10 +82,22 @@ func (s *Server) Start() error {
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("feed", handler.GetFeed(s.db, s.db))
 			privateg.GET("me", handler.GetMe(s.db))
-			privateg.POST("me/feed", handler.PostMeFeed(s.db))
-			privateg.GET("profiles/:id", handler.GetProfile(s.db))
+			privateg.POST("me/feed", handler.PostMeFeed(s.feedService))
+			privateg.GET("feed", handler.GetFeed(s.feedService), mymiddleware.Pagination(100))
+			{
+				feedg := privateg.Group("posts/", mymiddleware.IdParam("post_id"))
+
+				feedg.GET(":post_id/likes", handler.GetLikes(s.likesService), mymiddleware.Pagination(100))
+				feedg.POST(":post_id/like", handler.PostLike(s.likesService))
+				feedg.DELETE(":post_id/like", handler.DeleteLike(s.likesService))
+			}
+			{
+				profilesg := privateg.Group("profiles/", mymiddleware.IdParam("user_id"))
+
+				profilesg.GET(":user_id", handler.GetProfile(s.db))
+				profilesg.GET(":user_id/feed", handler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
+			}
 		}
 	}
 

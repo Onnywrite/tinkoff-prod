@@ -10,6 +10,9 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/config"
 	server "github.com/Onnywrite/tinkoff-prod/internal/http-server"
 	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/countries"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/likes"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage/pg"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
@@ -45,9 +48,32 @@ func (a *Application) Start(ctx context.Context) (err error) {
 		return err
 	}
 
-	relativePath := a.cfg.Dir() + "/"
+	countriesService := countries.New(a.log, a.db, a.db)
 
-	a.srv = server.NewServer(a.log, a.db, fmt.Sprintf(":%d", a.cfg.Https.Port), relativePath+a.cfg.Https.Cert, relativePath+a.cfg.Https.Key)
+	likesService := likes.New(a.log, likes.Dependencies{
+		Saver:        a.db,
+		Deleter:      a.db,
+		Provider:     a.db,
+		LikesCounter: a.db,
+		LikeProvider: a.db,
+	})
+
+	feedService := feed.New(a.log, feed.Dependencies{
+		Provider:        a.db,
+		Counter:         a.db,
+		Saver:           a.db,
+		AuthorCounter:   a.db,
+		AuthorProvider:  a.db,
+		IsLikedProvider: likesService,
+		LikesProvider:   likesService,
+	})
+
+	relativePath := a.cfg.Dir() + "/"
+	certPath := relativePath + a.cfg.Https.Cert
+	keyPath := relativePath + a.cfg.Https.Key
+	port := fmt.Sprintf(":%d", a.cfg.Https.Port)
+
+	a.srv = server.NewServer(a.log, port, certPath, keyPath, a.db, feedService, countriesService, likesService)
 	a.srv.Start()
 
 	a.log.Info("started")

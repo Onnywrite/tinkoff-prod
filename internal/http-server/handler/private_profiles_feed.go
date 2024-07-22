@@ -12,11 +12,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type AllFeedProvider interface {
-	AllFeed(ctx context.Context, opts feed.AllFeedOptions) (*feed.PagedFeed, ero.Error)
+type AuthorFeedProvider interface {
+	AuthorFeed(ctx context.Context, opts feed.AuthorFeedOptions) (*feed.PagedProfileFeed, ero.Error)
 }
 
-func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
+func GetProfileFeed(provider AuthorFeedProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		fullTimestamp, err := strconv.ParseBool(c.QueryParam("full_timestamp"))
 		if err != nil {
@@ -27,10 +27,10 @@ func GetFeed(provider AllFeedProvider) echo.HandlerFunc {
 			likesCount = 3
 		}
 
-		posts, eroErr := provider.AllFeed(context.Background(), feed.AllFeedOptions{
+		posts, eroErr := provider.AuthorFeed(context.Background(), feed.AuthorFeedOptions{
 			Page:       c.Get("page").(uint64),
 			PageSize:   c.Get("page_size").(uint64),
-			UserId:     c.Get("id").(uint64),
+			UserId:     c.Get("user_id").(uint64),
 			LikesCount: likesCount,
 			FormatDate: func(t time.Time) string {
 				if fullTimestamp {
