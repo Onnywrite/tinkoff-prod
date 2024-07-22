@@ -1,0 +1,26 @@
+service_name: tinkoff-prod
+conn: "postgres://user:12345678@postgres:5432/database?sslmode=disable"
+watch_freq: 5s
+https:
+  port: 8080
+# does not work yet
+  cert: ignore-certs/server-cert.pem
+  key: ignore-certs/server-key.pem
+access_token:
+  secret: file://ignore-certs/server-key.pem
+  ttl: 5m
+  # issuer:
+  # audience:
+  # subject:
+refresh_token:
+  secret: file://ignore-certs/server-key.pem
+  ttl: 240h
+  # issuer:
+  # audience:
+  # subject:
+logger:
+  handler: text
+  add_source: true
+  domains_options:
+    - domain: all
+      level: info

@@ -11,12 +11,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Server struct {
-	address string
-	logger  *slog.Logger
-	db      Storage
-}
-
 type Storage interface {
 	handler.CountriesProvider
 	handler.CountryProvider
@@ -28,11 +22,20 @@ type Storage interface {
 	handler.PostsCountProvider
 }
 
-func NewServer(address string, db Storage, logger *slog.Logger) *Server {
+type Server struct {
+	address           string
+	logger            *slog.Logger
+	db                Storage
+	certPath, keyPath string
+}
+
+func NewServer(logger *slog.Logger, db Storage, address, certPath, keyPath string) *Server {
 	return &Server{
-		address: address,
-		logger:  logger,
-		db:      db,
+		address:  address,
+		logger:   logger,
+		db:       db,
+		certPath: certPath,
+		keyPath:  keyPath,
 	}
 }
 
@@ -69,5 +72,5 @@ func (s *Server) Start() error {
 	}
 
 	s.logger.Info("server has been started", "address", s.address)
-	return e.Start(s.address)
+	return e.StartTLS(s.address, s.certPath, s.keyPath)
 }
