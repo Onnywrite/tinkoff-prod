@@ -20,8 +20,9 @@ type Access struct {
 }
 
 type Refresh struct {
-	Id  uint64
-	Exp int64
+	Id       uint64
+	Rotation uint64
+	Exp      int64
 }
 
 func (a *Access) Sign() (AccessString, error) {
@@ -57,6 +58,7 @@ func (r *Refresh) SignSecret(secret []byte) (RefreshString, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  r.Id,
 		"exp": r.Exp,
+		"rtr": r.Rotation,
 	})
 
 	tknstr, err := token.SignedString(secret)

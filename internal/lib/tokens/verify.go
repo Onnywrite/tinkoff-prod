@@ -90,9 +90,15 @@ func (a *RefreshString) ParseVerifySecret(secret []byte) (*Refresh, error) {
 			return nil, ErrInvalidPayload
 		}
 
+		rotation, ok := claims["rtr"].(float64)
+		if !ok {
+			return nil, ErrInvalidPayload
+		}
+
 		return &Refresh{
-			Id:  uint64(id),
-			Exp: int64(exp),
+			Id:       uint64(id),
+			Exp:      int64(exp),
+			Rotation: uint64(rotation),
 		}, nil
 	}
 
