@@ -16,23 +16,25 @@ import (
 type Server struct {
 	address string
 	logger  *slog.Logger
-	db      Storage
 
-	feedService      FeedService
 	countriesService CountriesService
+	usersService     UsersService
+	feedService      FeedService
 	likesService     LikesService
-}
-
-type Storage interface {
-	authhandler.UserRegistrator
-	handler.UserProvider
-	handler.UserByIdProvider
 }
 
 type CountriesService interface {
 	handler.CountriesProvider
 	handler.CountryProvider
 }
+
+type UsersService interface {
+	authhandler.UserRegistrator
+	authhandler.IdentityProvider
+	authhandler.AccessTokenUpdater
+	privatehandler.UserProvider
+}
+
 type FeedService interface {
 	privatehandler.PostCreator
 	privatehandler.AllFeedProvider
@@ -45,15 +47,15 @@ type LikesService interface {
 	privatehandler.LikesProvider
 }
 
-func NewServer(address string, logger *slog.Logger, db Storage,
-	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
+func NewServer(address string, logger *slog.Logger,
+	countriesService CountriesService, usersService UsersService, feedService FeedService, likesService LikesService) *Server {
 	return &Server{
 		address:          address,
 		logger:           logger,
-		db:               db,
 		feedService:      feedService,
 		countriesService: countriesService,
 		likesService:     likesService,
+		usersService:     usersService,
 	}
 }
 
@@ -75,14 +77,14 @@ func (s *Server) Start() error {
 		{
 			authg := g.Group("auth/")
 
-			authg.POST("register", authhandler.PostRegister(s.db))
-			authg.POST("sign-in", authhandler.PostSignIn(s.db))
-			authg.POST("refresh", authhandler.PostRefresh(s.db))
+			authg.POST("register", authhandler.PostRegister(s.usersService))
+			authg.POST("sign-in", authhandler.PostSignIn(s.usersService))
+			authg.POST("refresh", authhandler.PostRefresh(s.usersService))
 		}
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("me", privatehandler.GetMe(s.db))
+			privateg.GET("me", privatehandler.GetMe(s.usersService))
 			privateg.POST("me/feed", privatehandler.PostMeFeed(s.feedService))
 			privateg.GET("feed", privatehandler.GetFeed(s.feedService), mymiddleware.Pagination(100))
 			{
@@ -95,7 +97,7 @@ func (s *Server) Start() error {
 			{
 				profilesg := privateg.Group("profiles/", mymiddleware.IdParam("user_id"))
 
-				profilesg.GET(":user_id", privatehandler.GetProfile(s.db))
+				profilesg.GET(":user_id", privatehandler.GetProfile(s.usersService))
 				profilesg.GET(":user_id/feed", privatehandler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
 			}
 		}
