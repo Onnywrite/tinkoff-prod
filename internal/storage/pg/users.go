@@ -2,9 +2,6 @@ package pg
 
 import (
 	"context"
-	"database/sql"
-	"errors"
-	"fmt"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/models"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage"
@@ -56,25 +53,21 @@ func (pg *PgStorage) UserById(ctx context.Context, id uint64) (*models.User, ero
 func (pg *PgStorage) userBy(ctx context.Context, where string, args ...any) (*models.User, ero.Error) {
 	logCtx := erolog.NewContextBuilder().WithParent(ctx).With("op", "pg.PgStorage.userBy").With("args", args)
 
-	stmt, err := pg.db.PreparexContext(ctx, fmt.Sprintf(`
+	stmt, err := pg.db.PreparexContext(ctx, `
 		SELECT users.id, users.name, users.lastname, users.email, users.is_public, users.image, users.password, users.birthday,
 			   countries.id AS c_id, countries.name AS c_name, countries.alpha2, countries.alpha3, countries.region
 		FROM users
 		JOIN countries
 		ON countries.id = country_fk
-		WHERE %s`, where),
+		WHERE `+where,
 	)
 	if err != nil {
 		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
 	}
 
 	row := stmt.QueryRowxContext(ctx, args...)
-	err = row.Err()
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeNotFound, storage.ErrNoRows)
-	case err != nil:
-		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeInternal, storage.ErrInternal)
+	if err = row.Err(); err != nil {
+		return nil, ero.New(logCtx.With("error", err).Build(), ero.CodeUnknownServer, getError(err))
 	}
 
 	var user models.User
