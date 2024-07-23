@@ -14,8 +14,9 @@ import (
 )
 
 type Server struct {
-	address string
-	logger  *slog.Logger
+	address           string
+	logger            *slog.Logger
+	certPath, keyPath string
 
 	countriesService CountriesService
 	usersService     UsersService
@@ -47,11 +48,15 @@ type LikesService interface {
 	privatehandler.LikesProvider
 }
 
-func NewServer(address string, logger *slog.Logger,
+func NewServer(logger *slog.Logger, address, certPath, keyPath string, db Storage,
+	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
+func NewServer(logger *slog.Logger, address, certPath, keyPath string,
 	countriesService CountriesService, usersService UsersService, feedService FeedService, likesService LikesService) *Server {
 	return &Server{
-		address:          address,
 		logger:           logger,
+		address:          address,
+		certPath:         certPath,
+		keyPath:          keyPath,
 		feedService:      feedService,
 		countriesService: countriesService,
 		likesService:     likesService,
@@ -104,5 +109,5 @@ func (s *Server) Start() error {
 	}
 
 	s.logger.Info("server has been started", "address", s.address)
-	return e.Start(s.address)
+	return e.StartTLS(s.address, s.certPath, s.keyPath)
 }
