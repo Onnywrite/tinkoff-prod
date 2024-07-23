@@ -47,7 +47,7 @@ func (s *Service) Likes(ctx context.Context, opts LikesOptions) (*PagedLikes, er
 	}
 
 	if len(likes) == 0 {
-		s.log.WarnContext(logCtx.BuildContext(), "no likes")
+		s.log.DebugContext(logCtx.BuildContext(), "no likes")
 		return nil, ero.New(logCtx.Build(), ero.CodeNotFound, ErrNoLikes)
 	}
 

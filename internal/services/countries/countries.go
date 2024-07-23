@@ -52,10 +52,10 @@ func (s *Service) Countries(ctx context.Context, regions ...string) ([]models.Co
 	cs, err := s.sprovider.Countries(ctx, regions...)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
-		s.log.WarnContext(err.Context(ctx), "could not find countries within given regions")
+		s.log.DebugContext(logCtx.BuildContext(), "could not find countries within given regions")
 		return nil, ero.New(logCtx.WithParent(err.Context(ctx)).Build(), ero.CodeNotFound, ErrCountriesNotFound)
 	case err != nil:
-		s.log.ErrorContext(logCtx.With("error", err).BuildContext(), "could not get countries")
+		s.log.ErrorContext(err.Context(ctx), "could not get countries")
 		return nil, ero.New(logCtx.WithParent(err.Context(ctx)).With("error", err).Build(), ero.CodeInternal, ErrInternal)
 	}
 
@@ -69,17 +69,17 @@ func (s *Service) Country(ctx context.Context, alpha2 string) (models.Country, e
 
 	alpha2 = strings.ToUpper(alpha2)
 	if !alphaRegex.MatchString(alpha2) {
-		s.log.WarnContext(logCtx.BuildContext(), "alpha2 does not seem to be an alpha2")
+		s.log.DebugContext(logCtx.BuildContext(), "alpha2 does not seem to be an alpha2")
 		return models.Country{}, ero.New(logCtx.Build(), ero.CodeBadRequest, ErrBadAlpha2)
 	}
 
 	ctr, err := s.provider.Country(context.TODO(), alpha2)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
-		s.log.WarnContext(logCtx.BuildContext(), "country with given alpha2 does not exist")
+		s.log.DebugContext(logCtx.BuildContext(), "country with given alpha2 does not exist")
 		return models.Country{}, ero.New(logCtx.Build(), ero.CodeNotFound, ErrCountryNotFound)
 	case err != nil:
-		s.log.ErrorContext(logCtx.With("error", err).BuildContext(), "could not get country")
+		s.log.ErrorContext(err.Context(ctx), "could not get country")
 		return models.Country{}, ero.New(logCtx.WithParent(err.Context(ctx)).With("error", err).Build(), ero.CodeInternal, ErrInternal)
 	}
 

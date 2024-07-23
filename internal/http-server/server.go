@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/http-server/handler"
+	authhandler "github.com/Onnywrite/tinkoff-prod/internal/http-server/handler/auth"
+	privatehandler "github.com/Onnywrite/tinkoff-prod/internal/http-server/handler/private"
 	mymiddleware "github.com/Onnywrite/tinkoff-prod/internal/http-server/middleware"
 
 	"github.com/labstack/echo/v4"
@@ -14,46 +16,51 @@ import (
 type Server struct {
 	address           string
 	logger            *slog.Logger
-	db                Storage
 	certPath, keyPath string
 
-	feedService      FeedService
 	countriesService CountriesService
+	usersService     UsersService
+	feedService      FeedService
 	likesService     LikesService
-}
-type Storage interface {
-	handler.UserRegistrator
-	handler.UserProvider
-	handler.UserByIdProvider
 }
 
 type CountriesService interface {
 	handler.CountriesProvider
 	handler.CountryProvider
 }
+
+type UsersService interface {
+	authhandler.UserRegistrator
+	authhandler.IdentityProvider
+	authhandler.AccessTokenUpdater
+	privatehandler.UserProvider
+}
+
 type FeedService interface {
-	handler.PostCreator
-	handler.AllFeedProvider
-	handler.AuthorFeedProvider
+	privatehandler.PostCreator
+	privatehandler.AllFeedProvider
+	privatehandler.AuthorFeedProvider
 }
 
 type LikesService interface {
-	handler.Liker
-	handler.Unliker
-	handler.LikesProvider
+	privatehandler.Liker
+	privatehandler.Unliker
+	privatehandler.LikesProvider
 }
 
 func NewServer(logger *slog.Logger, address, certPath, keyPath string, db Storage,
 	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
+func NewServer(logger *slog.Logger, address, certPath, keyPath string,
+	countriesService CountriesService, usersService UsersService, feedService FeedService, likesService LikesService) *Server {
 	return &Server{
 		logger:           logger,
 		address:          address,
 		certPath:         certPath,
 		keyPath:          keyPath,
-		db:               db,
 		feedService:      feedService,
 		countriesService: countriesService,
 		likesService:     likesService,
+		usersService:     usersService,
 	}
 }
 
@@ -75,28 +82,28 @@ func (s *Server) Start() error {
 		{
 			authg := g.Group("auth/")
 
-			authg.POST("register", handler.PostRegister(s.db))
-			authg.POST("sign-in", handler.PostSignIn(s.db))
-			authg.POST("refresh", handler.PostRefresh(s.db))
+			authg.POST("register", authhandler.PostRegister(s.usersService))
+			authg.POST("sign-in", authhandler.PostSignIn(s.usersService))
+			authg.POST("refresh", authhandler.PostRefresh(s.usersService))
 		}
 		{
 			privateg := g.Group("private/", mymiddleware.Authorized())
 
-			privateg.GET("me", handler.GetMe(s.db))
-			privateg.POST("me/feed", handler.PostMeFeed(s.feedService))
-			privateg.GET("feed", handler.GetFeed(s.feedService), mymiddleware.Pagination(100))
+			privateg.GET("me", privatehandler.GetMe(s.usersService))
+			privateg.POST("me/feed", privatehandler.PostMeFeed(s.feedService))
+			privateg.GET("feed", privatehandler.GetFeed(s.feedService), mymiddleware.Pagination(100))
 			{
 				feedg := privateg.Group("posts/", mymiddleware.IdParam("post_id"))
 
-				feedg.GET(":post_id/likes", handler.GetLikes(s.likesService), mymiddleware.Pagination(100))
-				feedg.POST(":post_id/like", handler.PostLike(s.likesService))
-				feedg.DELETE(":post_id/like", handler.DeleteLike(s.likesService))
+				feedg.GET(":post_id/likes", privatehandler.GetLikes(s.likesService), mymiddleware.Pagination(100))
+				feedg.POST(":post_id/like", privatehandler.PostLike(s.likesService))
+				feedg.DELETE(":post_id/like", privatehandler.DeleteLike(s.likesService))
 			}
 			{
 				profilesg := privateg.Group("profiles/", mymiddleware.IdParam("user_id"))
 
-				profilesg.GET(":user_id", handler.GetProfile(s.db))
-				profilesg.GET(":user_id/feed", handler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
+				profilesg.GET(":user_id", privatehandler.GetProfile(s.usersService))
+				profilesg.GET(":user_id/feed", privatehandler.GetProfileFeed(s.feedService), mymiddleware.Pagination(100))
 			}
 		}
 	}

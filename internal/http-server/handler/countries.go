@@ -28,10 +28,10 @@ func GetCountries(provider CountriesProvider) echo.HandlerFunc {
 		cs, err := provider.Countries(context.TODO(), regions...)
 		switch {
 		case errors.Is(err, countries.ErrCountriesNotFound):
-			c.JSONBlob(http.StatusNotFound, errorMessage(fmt.Sprintf("could not find countries within regions %v", regions)).Blob())
+			c.JSONBlob(http.StatusNotFound, ErrorMessage(fmt.Sprintf("could not find countries within regions %v", regions)).Blob())
 			return err
 		case err != nil:
-			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+			c.JSONBlob(http.StatusInternalServerError, ErrorMessage("internal error").Blob())
 			return err
 		}
 
@@ -46,13 +46,13 @@ func GetCountryAlpha(provider CountryProvider) echo.HandlerFunc {
 		ctr, err := provider.Country(context.TODO(), alpha)
 		switch {
 		case errors.Is(err, countries.ErrCountryNotFound):
-			c.JSONBlob(http.StatusNotFound, errorMessage(fmt.Sprintf("could not find countries with alpha2 '%s'", alpha)).Blob())
+			c.JSONBlob(http.StatusNotFound, ErrorMessage(fmt.Sprintf("could not find countries with alpha2 '%s'", alpha)).Blob())
 			return err
 		case errors.Is(err, countries.ErrBadAlpha2):
-			c.JSONBlob(http.StatusBadRequest, errorMessage("alpha2 is not valid").Blob())
+			c.JSONBlob(http.StatusBadRequest, ErrorMessage("alpha2 is not valid").Blob())
 			return err
 		case err != nil:
-			c.JSONBlob(http.StatusInternalServerError, errorMessage("internal error").Blob())
+			c.JSONBlob(http.StatusInternalServerError, ErrorMessage("internal error").Blob())
 			return err
 		}
 

@@ -17,6 +17,7 @@ func main() {
 	application := app.New(cfg)
 	application.MustStart(ctx)
 
+	// gracefull shutdown
 	shut := make(chan os.Signal, 1)
 	signal.Notify(shut, os.Interrupt)
 	<-shut
