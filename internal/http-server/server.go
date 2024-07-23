@@ -48,8 +48,6 @@ type LikesService interface {
 	privatehandler.LikesProvider
 }
 
-func NewServer(logger *slog.Logger, address, certPath, keyPath string, db Storage,
-	feedService FeedService, countriesService CountriesService, likesService LikesService) *Server {
 func NewServer(logger *slog.Logger, address, certPath, keyPath string,
 	countriesService CountriesService, usersService UsersService, feedService FeedService, likesService LikesService) *Server {
 	return &Server{

@@ -13,6 +13,7 @@ import (
 	"github.com/Onnywrite/tinkoff-prod/internal/services/countries"
 	"github.com/Onnywrite/tinkoff-prod/internal/services/feed"
 	"github.com/Onnywrite/tinkoff-prod/internal/services/likes"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/users"
 	"github.com/Onnywrite/tinkoff-prod/internal/storage/pg"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/Onnywrite/tinkoff-prod/pkg/erolog"
@@ -59,6 +60,13 @@ func (a *Application) Start(ctx context.Context) (err error) {
 		LikeProvider: a.db,
 	})
 
+	usersService := users.New(a.log, users.Dependencies{
+		ByIdProvider:    a.db,
+		ByEmailProvider: a.db,
+		Saver:           a.db,
+	},
+	)
+
 	feedService := feed.New(a.log, feed.Dependencies{
 		Provider:        a.db,
 		Counter:         a.db,
@@ -74,7 +82,7 @@ func (a *Application) Start(ctx context.Context) (err error) {
 	keyPath := relativePath + a.cfg.Https.Key
 	port := fmt.Sprintf(":%d", a.cfg.Https.Port)
 
-	a.srv = server.NewServer(a.log, port, certPath, keyPath, a.db, feedService, countriesService, likesService)
+	a.srv = server.NewServer(a.log, port, certPath, keyPath, countriesService, usersService, feedService, likesService)
 	a.srv.Start()
 
 	a.log.Info("started")
