@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	cfg := config.MustLoad("/etc/service/config/ignore-congfig.yaml")
+	cfg := config.MustLoad("/etc/service/config/ignore-config.yaml")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
