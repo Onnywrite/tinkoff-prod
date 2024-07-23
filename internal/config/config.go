@@ -82,18 +82,24 @@ func Load(defaultPath string) (*Config, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%w: path '%s'", err, configPath)
 	}
+	return LoadPath(configPath)
+}
 
+func LoadPath(path string) (*Config, error) {
 	var cfg Config
-
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
 		return nil, fmt.Errorf("config could not be loaded: %w", err)
 	}
-	cfg.path = configPath
+	cfg.path = path
 
 	folders := strings.Split(cfg.path, "/")
 	cfg.dir = strings.Join(folders[:len(folders)-1], "/")
 
 	return &cfg, nil
+}
+
+func (c *Config) Dir() string {
+	return c.dir
 }
 
 func (c *Config) ResetWatchFreq(freq time.Duration) {
@@ -120,10 +126,6 @@ func (c *Config) StartWatch(ctx context.Context, onChange func(Config)) {
 	}()
 }
 
-func (c *Config) Dir() string {
-	return c.dir
-}
-
 func (c *Config) watch(callback func(Config)) {
 	if newPath, changed := updatePath(c.path); changed {
 		c.path = newPath
@@ -136,7 +138,7 @@ func (c *Config) watch(callback func(Config)) {
 		return
 	}
 
-	newcfg, err := Load(c.path)
+	newcfg, err := LoadPath(c.path)
 	if err != nil {
 		return
 	}
