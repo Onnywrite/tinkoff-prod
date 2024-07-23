@@ -1,26 +1,73 @@
+# used in errors messages
+# DYNAMIC
 service_name: tinkoff-prod
+# only postgres is supported
+# user, password and database must be the same as in ignore-postgres.env if local postgres container is used
 conn: "postgres://user:12345678@postgres:5432/database?sslmode=disable"
+# with this frequency this config will be watched.
+# And if this file has been changed since last check, then dynamic properties will be updated
+# DYNAMIC
 watch_freq: 5s
+
+# https configuration
 https:
   port: 8080
-# does not work yet
-  cert: ignore-certs/server-cert.pem
-  key: ignore-certs/server-key.pem
+  # path to SSL certificate and private key related to this config file
+  cert: example-certs/server-cert.pem
+  key: example-certs/server-key.pem
+
+# access token configuration
 access_token:
-  secret: file://ignore-certs/server-key.pem
+  # used for every access token encryption.
+  # can be a string:
+  #   secret: example-of-simple_key
+  #   secret: "l@ng C00L __SEcr3t"
+  # can be a file:
+  #   secret: file://path/to/your/file.secret
+  # path is related to this config file
+  # 
+  # I use SSL private key
+  # DYNAMIC
+  secret: file://example-certs/server-key.pem
+  # Time To Live.
+  # DYNAMIC
   ttl: 5m
+# is coming soon...
   # issuer:
   # audience:
   # subject:
+
+# refresh token configuration
 refresh_token:
-  secret: file://ignore-certs/server-key.pem
+  # the same as access token
+  # DYNAMIC
+  secret: file://example-certs/server-key.pem
+  # Time To Live.
+  # DYNAMIC
   ttl: 240h
+# is coming soon...
   # issuer:
   # audience:
   # subject:
+
+# logger configuration
 logger:
+  # can be either json or text
   handler: text
+  # if true, then each log will have source=FILE:line of code attribute
   add_source: true
+  # lets you control what component ("domain") of system has which log level
+  # for example:
+  #   - domain: all
+  #     level: error
+  #   - domain: users
+  #     level: info
+  #   - domain: auth
+  #     level: debug
+  # means that all components will be logged on the error level
+  # while users on info and auth on debug level.
+  # This is very powerful feature, but only 'all' domain is now supported
+  # DYNAMIC
   domains_options:
     - domain: all
-      level: info
+      level: debug
