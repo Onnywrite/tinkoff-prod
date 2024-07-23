@@ -12,9 +12,6 @@ import (
 )
 
 func Logger(logger *slog.Logger) echo.MiddlewareFunc {
-	const op = "middleware.Logger"
-	log := logger.With(slog.String("op", op))
-
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			t := time.Now()
@@ -35,7 +32,7 @@ func Logger(logger *slog.Logger) echo.MiddlewareFunc {
 				ctx = erolog.NewContextBuilder().With("error", err.Error()).BuildContext()
 			}
 
-			log.LogAttrs(ctx, level, "request",
+			logger.LogAttrs(ctx, level, "request",
 				slog.String("uri", c.Request().RequestURI),
 				slog.String("method", c.Request().Method),
 				slog.Int("code", c.Response().Status),
