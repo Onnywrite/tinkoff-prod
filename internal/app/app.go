@@ -42,6 +42,7 @@ func (a *Application) MustStart(ctx context.Context) {
 }
 
 func (a *Application) Start(ctx context.Context) (err error) {
+	a.updateConfig(*a.cfg)
 	a.cfg.StartWatch(ctx, a.updateConfig)
 	a.db, err = pg.New(a.cfg.Conn)
 	if err != nil {
