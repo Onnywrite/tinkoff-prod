@@ -8,13 +8,12 @@ import (
 )
 
 func (s *Service) IsLiked(ctx context.Context, userId, postId uint64) bool {
-	// logCtx := erolog.NewContextBuilder().With("op", "likes.Service.IsLiked").With("user_id", userId).With("post_id", postId)
-
 	_, err := s.d.LikeProvider.Like(ctx, userId, postId)
-	if errors.Is(err, storage.ErrNoRows) {
+	switch {
+	case errors.Is(err, storage.ErrNoRows):
+		s.log.DebugContext(err.Context(ctx), "no likes")
 		return false
-	}
-	if err != nil {
+	case err != nil:
 		s.log.ErrorContext(err.Context(ctx), "error while getting like")
 		return false
 	}

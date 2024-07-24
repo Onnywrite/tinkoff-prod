@@ -2,32 +2,29 @@ package privatehandler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
-	"github.com/Onnywrite/tinkoff-prod/internal/http-server/handler"
-	"github.com/Onnywrite/tinkoff-prod/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/users"
+	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/labstack/echo/v4"
 )
 
-func GetProfile(provider handler.UserByIdProvider) echo.HandlerFunc {
+func GetProfile(provider UserProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		user, eroErr := provider.UserById(context.TODO(), c.Get("user_id").(uint64))
-		switch {
-		case errors.Is(eroErr, storage.ErrNoRows):
-			c.JSONBlob(http.StatusNotFound, handler.ErrorMessage("user not found").Blob())
-			return eroErr
-		case eroErr != nil:
-			c.JSONBlob(http.StatusInternalServerError, handler.ErrorMessage("internal error").Blob())
-			return eroErr
+		userId := c.Get("user_id").(uint64)
+		id := c.Get("id").(uint64)
+		privateOrPublic, err := provider.UserById(context.TODO(), userId, userId == id)
+		if err != nil {
+			return c.JSONBlob(ero.ToHttpCode(err.Code()), []byte(err.Error()))
 		}
 
-		if !user.IsPublic {
-			return c.JSONBlob(http.StatusNotFound, handler.ErrorMessage("profile is private").Blob())
-		}
-
-		c.JSON(http.StatusOK, handler.GetProfile(user))
-
-		return nil
+		return privateOrPublic.Switch(
+			func(profile *users.Profile) error {
+				return c.JSON(http.StatusOK, profile)
+			},
+			func(profile *users.PrivateProfile) error {
+				return c.JSON(http.StatusOK, profile)
+			},
+		)
 	}
 }

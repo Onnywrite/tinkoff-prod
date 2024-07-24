@@ -7,13 +7,14 @@ type Pair struct {
 	Refresh RefreshString `json:"refresh"`
 }
 
-func NewPair(usr *models.User) (Pair, error) {
+func NewPair(usr *models.User, rotation uint64) (Pair, error) {
 	access := Access{
 		Id:    usr.Id,
 		Email: usr.Email,
 	}
 	refresh := Refresh{
-		Id: usr.Id,
+		Id:       usr.Id,
+		Rotation: rotation,
 	}
 
 	accessStr, err := access.Sign()

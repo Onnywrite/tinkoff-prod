@@ -2,21 +2,20 @@ package authhandler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/http-server/handler"
 	"github.com/Onnywrite/tinkoff-prod/internal/lib/tokens"
-	"github.com/Onnywrite/tinkoff-prod/internal/storage"
+	"github.com/Onnywrite/tinkoff-prod/internal/services/users"
+	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
 	"github.com/labstack/echo/v4"
 )
 
-type tokensResponse struct {
-	Profile handler.Profile `json:"profile"`
-	tokens.Pair
+type AccessTokenUpdater interface {
+	Refresh(ctx context.Context, refresh tokens.RefreshString) (*users.AuthorizedUser, ero.Error)
 }
 
-func PostRefresh(provider handler.UserByIdProvider) echo.HandlerFunc {
+func PostRefresh(updater AccessTokenUpdater) echo.HandlerFunc {
 	type refreshToken struct {
 		Refresh tokens.RefreshString `json:"refresh"`
 	}
@@ -28,37 +27,12 @@ func PostRefresh(provider handler.UserByIdProvider) echo.HandlerFunc {
 			return err
 		}
 
-		refresh, err := token.Refresh.ParseVerify()
-		switch {
-		case errors.Is(err, tokens.ErrExpired):
-			c.JSONBlob(http.StatusUnauthorized, handler.ErrorMessage("refresh token has expired").Blob())
-			return err
-		case err != nil:
-			c.JSONBlob(http.StatusUnauthorized, handler.ErrorMessage("could not parse refresh token").Blob())
-			return err
-		}
-
-		user, eroErr := provider.UserById(context.TODO(), refresh.Id)
-		switch {
-		case errors.Is(eroErr, storage.ErrNoRows):
-			c.JSONBlob(http.StatusNotFound, handler.ErrorMessage("user not found").Blob())
-			return eroErr
-		case eroErr != nil:
-			c.JSONBlob(http.StatusInternalServerError, handler.ErrorMessage("internal error").Blob())
+		authUser, eroErr := updater.Refresh(context.TODO(), token.Refresh)
+		if eroErr != nil {
+			c.JSONBlob(ero.ToHttpCode(eroErr.Code()), []byte(eroErr.Error()))
 			return eroErr
 		}
 
-		pair, err := tokens.NewPair(user)
-		if err != nil {
-			c.JSONBlob(http.StatusInternalServerError, handler.ErrorMessage("error while generating tokens").Blob())
-			return err
-		}
-
-		c.JSON(http.StatusOK, &tokensResponse{
-			Profile: handler.GetProfile(user),
-			Pair:    pair,
-		})
-
-		return nil
+		return c.JSON(http.StatusOK, authUser)
 	}
 }

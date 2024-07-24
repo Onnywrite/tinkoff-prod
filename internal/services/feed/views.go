@@ -3,6 +3,7 @@ package feed
 import (
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Onnywrite/tinkoff-prod/internal/services/likes"
 	"github.com/Onnywrite/tinkoff-prod/pkg/ero"
@@ -83,6 +84,12 @@ func (p NewPost) Validate() ero.Error {
 		})
 	} else {
 		*p.Content = strings.TrimSpace(*p.Content)
+	}
+	if utf8.RuneCountInString(*p.Content) > 1000 {
+		faults = append(faults, fieldFault{
+			Field:   "content",
+			Message: "too long, must be less than 1000 characters",
+		})
 	}
 
 	if p.ImagesUrls != nil {

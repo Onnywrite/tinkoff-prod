@@ -3,7 +3,10 @@ package ero
 import (
 	"context"
 	"encoding/json"
+	"errors"
 )
+
+var ErrValidation = errors.New("validation error")
 
 type ValidationError[T any, TCtx LogContext[TCtx]] struct {
 	Service          string
@@ -27,12 +30,12 @@ func (e *ValidationError[T, TCtx]) Error() string {
 	return string(b)
 }
 
-func (e *ValidationError[T, TCtx]) Is(error) bool {
-	panic("ValidationErrors cannot be compared")
+func (e *ValidationError[T, TCtx]) Is(err error) bool {
+	return errors.Is(ErrValidation, err)
 }
 
 func (e *ValidationError[T, TCtx]) Unwrap() error {
-	panic("ValidationErrors cannot be unwrapped")
+	return ErrValidation
 }
 
 func (e *ValidationError[T, TCtx]) Code() int {

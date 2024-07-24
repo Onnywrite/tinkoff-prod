@@ -2,7 +2,6 @@ package privatehandler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -35,12 +34,8 @@ func PostMeFeed(creator PostCreator) echo.HandlerFunc {
 			Content:    p.Content,
 			ImagesUrls: models.StringSlice(p.ImagesUrls),
 		})
-		switch {
-		case errors.Is(eroErr, feed.ErrAuthorNotFound):
-			c.JSONBlob(http.StatusNotFound, []byte(eroErr.Error()))
-			return eroErr
-		case eroErr != nil:
-			c.JSONBlob(http.StatusInternalServerError, handler.ErrorMessage("internal error").Blob())
+		if eroErr != nil {
+			c.JSONBlob(ero.ToHttpCode(eroErr.Code()), []byte(eroErr.Error()))
 			return eroErr
 		}
 

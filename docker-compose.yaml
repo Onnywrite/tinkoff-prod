@@ -2,10 +2,7 @@ name: social
 services:
   postgres:
     container_name: postgres
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=12345678
-      - POSTGRES_DB=database
+    env_file: configs/ignore-postgres.env
     networks:
       - local_network
     volumes:
@@ -30,19 +27,12 @@ services:
       postgres:
         condition: service_healthy
     container_name: migrate
+    env_file: configs/ignore-postgres.env
     networks:
       - local_network
     volumes:
-      - ./migrations:/migrations
-    command:
-      [
-        "-path",
-        "/migrations",
-        "-database",
-        "postgres://user:12345678@postgres:5432/database?sslmode=disable",
-        "up"
-      ]
-    image: migrate/migrate:v4.17.1
+      - ./migrations:/migrations:ro
+    build: migrate
   service:
     depends_on:
       migrate:
@@ -52,9 +42,8 @@ services:
     container_name: service
     networks:
       - local_network
-    environment:
-      - POSTGRES_CONN=postgres://user:12345678@postgres:5432/database?sslmode=disable
-      - SERVER_ADDRESS=:8080
+    volumes:
+      - ./configs:/etc/service/config:ro
     build: .
 networks:
   local_network:
