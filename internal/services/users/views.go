@@ -76,9 +76,12 @@ type RegisterData struct {
 	Password  string   `json:"password"`
 }
 
+var (
+	nameRegex  = regexp.MustCompile(`^[\p{L}]+(-[\p{L}]+)*$`)
+	emailRegex = regexp.MustCompile(`^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,4}$`)
+)
+
 func (d *RegisterData) Validate() ero.Error {
-	nameRegex := regexp.MustCompile(`^[\p{L}]+(-[\p{L}]+)*$`)
-	emailRegex := regexp.MustCompile(`^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,4}$`)
 
 	type fieldError struct {
 		Field    string   `json:"field"`
@@ -98,26 +101,23 @@ func (d *RegisterData) Validate() ero.Error {
 
 	errorsMap := make(map[string][]string)
 
-	errorsMap["name"] = make([]string, 0, 2)
-	errorsMap["surname"] = make([]string, 0, 2)
-	errorsMap["email"] = make([]string, 0, 2)
-	errorsMap["password"] = make([]string, 0, 2)
-
 	if utf8.RuneCountInString(d.Name) > 32 {
 		errorsMap["name"] = append(errorsMap["name"], "too long, must be less than 32 characters")
 	}
-	if !nameRegex.MatchString(d.Name) {
+	if nameRegex.MatchString(d.Name) {
+		d.Name = formatName(d.Name)
+	} else {
 		errorsMap["name"] = append(errorsMap["name"], "invalid characters set")
 	}
-	d.Name = formatName(d.Name)
 
 	if utf8.RuneCountInString(d.Lastname) > 32 {
 		errorsMap["surname"] = append(errorsMap["surname"], "too long, must be less than 32 characters")
 	}
-	if !nameRegex.MatchString(d.Lastname) {
+	if nameRegex.MatchString(d.Lastname) {
+		d.Lastname = formatName(d.Lastname)
+	} else {
 		errorsMap["surname"] = append(errorsMap["surname"], "invalid characters set")
 	}
-	d.Lastname = formatName(d.Lastname)
 
 	if !emailRegex.MatchString(d.Email) {
 		errorsMap["email"] = append(errorsMap["email"], "invalid email")
@@ -126,20 +126,31 @@ func (d *RegisterData) Validate() ero.Error {
 	if utf8.RuneCountInString(d.Password) < 8 {
 		errorsMap["password"] = append(errorsMap["password"], "too short, must be at least 8 characters")
 	}
-
 	if len(d.Password) > 72 {
-		errorsMap["password"] = append(errorsMap["password"], "too long, must be less than or equals 72 characters")
+		errorsMap["password"] = append(errorsMap["password"], "too long, must be less than or equals 72 bytes")
+	}
+
+	if time.Now().Before(time.Time(d.Birthday)) {
+		errorsMap["birthday"] = append(errorsMap["birthday"], "you haven't born yet")
+	}
+	if time.Time(d.Birthday).Before(time.Date(1945, time.September, 2, 0, 0, 0, 0, time.UTC)) {
+		errorsMap["birthday"] = append(errorsMap["birthday"], "you must have born after WW2")
 	}
 
 	if d.Image == "" {
-		d.Image = "default.png"
+		d.Image = "https://th.bing.com/th/id/R.0f176a0452d52cf716b2391db3ceb7e9?rik=yQN6JCCMB7a4QQ"
 	}
-	if d.CountryId == 0 {
+	if d.CountryId == 0 || d.CountryId > 249 {
+		// errorsMap["country_id"] = append(errorsMap["country_id"], "invalid country id")
 		d.CountryId = 70
 	}
 	if d.IsPublic == nil {
 		d.IsPublic = new(bool)
 		*d.IsPublic = true
+	}
+
+	if len(errorsMap) == 0 {
+		return nil
 	}
 
 	errors := make([]fieldError, 0, 4)
@@ -154,11 +165,7 @@ func (d *RegisterData) Validate() ero.Error {
 		}
 	}
 
-	if len(errors) > 0 {
-		return ero.NewValidation(erolog.NewContextBuilder().With("fields", fields).Build(), errors)
-	}
-
-	return nil
+	return ero.NewValidation(erolog.NewContextBuilder().With("fields", fields).Build(), errors)
 }
 
 type dateOnly time.Time

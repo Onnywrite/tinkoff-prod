@@ -44,9 +44,6 @@ services:
       - local_network
     volumes:
       - ./configs:/etc/service/config:ro
-    environment:
-      - POSTGRES_CONN=postgres://user:12345678@postgres:5432/database?sslmode=disable
-      - SERVER_ADDRESS=:8080
     build: .
 networks:
   local_network:
